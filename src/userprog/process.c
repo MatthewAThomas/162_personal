@@ -75,18 +75,24 @@ pid_t process_execute(const char* file_name) {
   }
   
   // Allocate memory for the array of pointers
-  char **argv = malloc(argc * sizeof(char*));
+  char* argv[argc];
   
   // Reset counters for reuse
   argc = 0;
 
   // Tokenize and store pointers in the array
   for (token = strtok_r(fn_copy, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    argv[argc++] = token;
+    argv[argc] = (char*) malloc(strlen(token)*sizeof(char));
+    strcpy(argv[argc], token);
+    argc = argc + 1;
   }
 
-  //put_args(argc, argv);
+  // 
+  // put_args(argc, argv);
 
+  for (int i = 0; i < argc; i++) {
+    free(argv[i]);
+  }
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
