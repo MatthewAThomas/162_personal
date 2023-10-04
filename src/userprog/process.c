@@ -67,15 +67,25 @@ pid_t process_execute(const char* file_name) {
   // tokenize string
   char *token, *save_ptr;
   int argc = 0;
-  char* argv[] = NULL;
+
   // Place the words at the top of the stack. 
   // Order doesn’t matter, because they will be referenced through pointers.
   for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
-    argv[argc] = token;
     argc =+ 1;
   }
+  
+  // Allocate memory for the array of pointers
+  char **argv = malloc(argc * sizeof(char*));
+  
+  // Reset counters for reuse
+  argc = 0;
 
-  put_args(argc, argv);
+  // Tokenize and store pointers in the array
+  for (token = strtok_r(fn_copy, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argv[argc++] = token;
+  }
+
+  //put_args(argc, argv);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -84,26 +94,6 @@ pid_t process_execute(const char* file_name) {
   return tid;
 }
 
-
-static void put_args(int argc, char* argv[]) {
-  int total_bytes = (len(argv) + 2) * 8 ; // 1 word per arg + 1 for argc + 1 null sentinel
-  asm volatile("push %%ebp; mov %%ebp, %%esp;"); 
-  asm volatile("sub %%esp, %0" : : "=r" (total_bytes)); 
-  for (int i = 0; i >= 0; i -= 1) {
-    char* curr = argv[i];
-    asm volatile("push %0" : : "=r" (curr)); 
-  }
-  asm volatile("push %0" : : "=r" (NULL)); // null pointer sentinel to make argv[argc] = NULL
-  
-  asm volatile("push %0" : : "=r" (argc));
-  
-  int padding = 16 - (total_bytes % 16);
-  asm volatile("sub %%esp, %0" : : "=r" (padding));
-  asm volatile("push %0" : : "=r" ('A' * padding));
-  
-  uint8_t random_address = 0xBB;
-  asm volatile("sub %%esp, $8; push %0" : : "=r" (random_address));
-}
 
 /* A thread function that loads a user process and starts it
    running. */
