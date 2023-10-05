@@ -26,6 +26,7 @@ static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
 
+
 /* Initializes user programs in the system by ensuring the main
    thread has a minimal PCB so that it can execute and wait for
    the first user process. Any additions to the PCB should be also
@@ -55,44 +56,24 @@ pid_t process_execute(const char* file_name) {
   tid_t tid;
 
   sema_init(&temporary, 0);
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
+  // Make a copy of FILE_NAME.
+  //   Otherwise there's a race between the caller and load().
   fn_copy = palloc_get_page(0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/
 
-  // tokenize string
-  char *token, *save_ptr;
-  int argc = 0;
-
-  // Place the words at the top of the stack. 
-  // Order doesn’t matter, because they will be referenced through pointers.
-  for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
-    argc =+ 1;
-  }
+  // while ((token = strtok_r(rest, " ", &rest)))
+  //      printf("%s\n", token);
   
-  // Allocate memory for the array of pointers
-  char* argv[argc];
-  
-  // Reset counters for reuse
-  argc = 0;
-
-  // Tokenize and store pointers in the array
-  for (token = strtok_r(fn_copy, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    argv[argc] = (char*) malloc(strlen(token)*sizeof(char));
-    strcpy(argv[argc], token);
-    argc = argc + 1;
-  }
-
+  // The caller uses registers to pass the first 6 arguments to the callee.  
+  // Given the arguments in left-to-right order, the order of registers used is: 
+  // %rdi, %rsi, %rdx, %rcx, %r8, and %r9.  Any remaining arguments are passed on the 
+  // stack in reverse order so that they can be popped off the stack in order.  
   // 
-  // put_args(argc, argv);
 
-  for (int i = 0; i < argc; i++) {
-    free(argv[i]);
-  }
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -125,14 +106,94 @@ static void start_process(void* file_name_) {
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
   }
 
+  // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/
+  char *token, *save_ptr;
+  int argc = 0;
+  char* temp_cmd_line = calloc(strlen(file_name) + 1, 1);
+  strlcpy(temp_cmd_line, file_name, strlen(file_name)+1);
+
+  // temp_cmd_line "stack-align-3 ab" -> "stack-align"
+  for (token = strtok_r(temp_cmd_line, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argc = argc + 1;
+  }
+
+  free(temp_cmd_line);
+
+  char* argv[argc+1];
+  argc = 0;
+  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argv[argc++] = token;
+  }
+  argv[argc] = NULL;
+
   /* Initialize interrupt frame and load executable. */
   if (success) {
     memset(&if_, 0, sizeof if_);
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    success = load(file_name, &if_.eip, &if_.esp);
+    //success = load(file_name, &if_.eip, &if_.esp);
+    success = load(argv[0], &if_.eip, &if_.esp);
   }
+
+
+  // Tokenize(get each word) and store a pointer on stack and save the same pointer in argv array for later below
+  // char* argv_addr = (char*) PHYS_BASE;
+  // for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+  //   argv_addr = argv_addr - (sizeof(token) + 1);
+  //   memcpy(argv_addr, token, strlen(token)+1);
+  //   argv[argc++] = argv_addr;
+  // }
+
+  // 0xbffffffc   argv[3][...]    bar\0       char[4]
+  // 0xbffffff8   argv[2][...]    foo\0       char[4]
+  // 0xbffffff5   argv[1][...]    -l\0        char[3]
+  // 0xbfffffed   argv[0][...]    /bin/ls\0   char[8]
+  //char* argv_addr = (char*) PHYS_BASE;
+
+  char* argv_addr[argc];
+  for (int i = 0 ; i < argc ; i++) {
+    if_.esp = if_.esp - (strlen(argv[i]) + 1);
+    argv_addr[i] = (char *) if_.esp;
+    memcpy(if_.esp, argv[i], strlen(argv[i])+1);
+  }
+
+  // add padding to align
+  // number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1)
+  // each pointer is 4 byte since it is 32bit architecture
+  // Pintos doc example case : (7 * 4) % 16 = 12 thus the last digit of stack-align address should be c.
+  // int stack_align_offset = ((int)argv_addr - (argc + 3)*4) % 16;
+  // argv_addr = argv_addr - stack_align_offset;
+  // memcpy(argv_addr, 0, stack_align_offset);
+
+  // 0xbfffffec   stack-align       0         uint8_t
+  uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
+  if_.esp = if_.esp - stack_align_offset;
+  memset(if_.esp, 0, stack_align_offset);
+
+  // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
+  if_.esp = if_.esp - sizeof(char*); // decrement address
+  memset(if_.esp, argv[argc], sizeof(char*));
+
+
+  // stack pointers(argv[i]) in reverse order
+  for (int i = 0 ; i < argc ; i++) {
+    if_.esp = if_.esp - sizeof(char*);
+    memcpy(if_.esp, argv_addr[argc-i-1], sizeof(char*));
+  }
+
+  // stack argv
+  if_.esp = if_.esp - sizeof(char*);
+  memcpy(if_.esp, if_.esp+4, sizeof(char*));
+
+  // stack argc
+  if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
+  memset(if_.esp, argc, sizeof(int));
+
+  // stack fake address
+  if_.esp = if_.esp - sizeof(void*);
+  memset(if_.esp, 0, sizeof(void*));
+
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {
