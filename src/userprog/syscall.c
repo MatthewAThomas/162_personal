@@ -4,6 +4,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
+#include "file-descriptor.h"
 
 static void syscall_handler(struct intr_frame*);
 
@@ -26,4 +27,35 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
   }
+  // Start of File Syscall
+  else if (args[0] == SYS_CREATE) {
+    // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_REMOVE) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_OPEN) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_FILESIZE) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_READ) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_WRITE) {
+      // printf("System call number: %d\n", args[0]);
+      // how the hell do I get int fd, const void *buffer, unsigned size using args?
+      // 
+  }
+  else if (args[0] == SYS_SEEK) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_TELL) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_CLOSE) {
+      // printf("System call number: %d\n", args[0]);
+  }
+
 }
