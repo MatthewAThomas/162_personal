@@ -1,11 +1,11 @@
-#ifndef USERPROG_PROCESS_H
-#define USERPROG_PROCESS_H
-
 #include "threads/thread.h"
 #include <stdint.h>
 
 #include "userprog/process.h"
 #include <list.h>
+#include "filesys/file.h"
+
+// Todo: test / review the functions in this file
 
 // FDs
 struct fd_table { // each process gets an fd_table --> need to add to process.h and initialize in start_process
@@ -22,8 +22,20 @@ struct fd {
 }
 
 // static or not static?
-static list_elem* find(struct* fd_table, int fd);
-static list_elem* pop(struct* fd_table, int fd);
+static fd* find(struct* fd_table, int fd);
+static fd* pop(struct* fd_table, int fd);
 static int remove(struct* fd_table, int fd); // -1 on failure, 0 on success
-static int add(struct* fd_table, file* file);
-static fd_table* init_table();
+static fd* add(struct* fd_table, file* file);
+static void init_table(fd_table* table);
+static file* get_file_pointer(struct* fd_table, int fd);
+
+// initialize fd_table
+// struct fd_table table;
+// struct list fds;
+// list_init(&fds);
+// table->fds = &fds;
+// fd_table->next_unused_fd = 2;
+// need to add #include "userprog/file-descriptor.h.h"
+
+// struct list my_list;
+// list_init (&my_list);

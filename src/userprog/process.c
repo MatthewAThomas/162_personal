@@ -19,6 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/file-descriptor.h" // added 
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -56,12 +57,17 @@ pid_t process_execute(const char* file_name) {
   tid_t tid;
 
   sema_init(&temporary, 0);
+  // Todo: need to prevent executable from being edited with file_deny_write
+
+
   // Make a copy of FILE_NAME.
   //   Otherwise there's a race between the caller and load().
   fn_copy = palloc_get_page(0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
+
+  
 
 
   // while ((token = strtok_r(rest, " ", &rest)))
@@ -88,11 +94,14 @@ static void start_process(void* file_name_) {
   char* file_name = (char*)file_name_;
   struct thread* t = thread_current();
   struct intr_frame if_;
-  bool success, pcb_success;
+  bool success, pcb_success, fd_table_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
-  success = pcb_success = new_pcb != NULL;
+  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  pcb_success = new_pcb != NULL;
+  fd_table_success = new_fd_table != NULL;
+  success = pcb_success && fd_table_success;
 
   /* Initialize process control block */
   if (success) {
@@ -100,6 +109,11 @@ static void start_process(void* file_name_) {
     // does not try to activate our uninitialized pagedir
     new_pcb->pagedir = NULL;
     t->pcb = new_pcb;
+
+    // Initialize fd_table
+    init_table(new_fd_table);
+    // Set new_fd_table as the fd_table of new_pcb
+    new_pcb -> fd_table = new_fd_table;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -194,6 +208,11 @@ static void start_process(void* file_name_) {
   if_.esp = if_.esp - sizeof(void*);
   memset(if_.esp, 0, sizeof(void*));
 
+  /* Handle failure with successful fd_table malloc. Must free fd_table*/
+  if (!success && fd_table_success) {
+    struct process* fd_table_to_free = t->fd_table;
+    free(pcb_to_free);
+  }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {
