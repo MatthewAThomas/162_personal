@@ -14,7 +14,8 @@
 
 // FDs
 struct fd_table { // each process gets an fd_table --> need to add to process.h and initialize in start_process
-  struct list* fds; 
+  //struct list* fds; 
+  struct list fds;
   int next_unused_fd; // maybe should just go to next unused one instead of reusing given ones
     // starts at 2
     // PID already within struct process therefore not necessary to keep here

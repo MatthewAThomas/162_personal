@@ -20,7 +20,7 @@
 struct fd* find(struct fd_table* fd_table, int fd) {
     //struct fd* file_desc;
     struct list_elem* e;
-    for (e = list_begin(fd_table->fds); e != list_end(fd_table->fds); e = list_next(e)) {
+    for (e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
         struct fd* file_desc = list_entry(e, struct fd, list_fd);
         if (file_desc != NULL && file_desc->val == fd) {
             return &file_desc;
@@ -71,7 +71,7 @@ struct fd* add(struct fd_table* fd_table, struct file* file) {
     file_descriptor->file = file;
     struct list_elem e;
     file_descriptor->list_fd = e;
-    list_push_back(fd_table->fds, &e);
+    list_push_back(&fd_table->fds, &e);
     return file_descriptor;
 }
 
@@ -87,15 +87,15 @@ struct file* get_file_pointer(struct fd_table *fd_table, int fd) {
     Initializes FD table.
 */    
 void init_table(struct fd_table *fd_table) {
-    // struct list fds;
-    // list_init(&fds);
-    // fd_table->fds = &fds;
-    // fd_table->next_unused_fd = 2;
-
-    struct list *fds = malloc(sizeof(struct list));
-    list_init(fds);
+    struct list fds;
+    list_init(&fds);
     fd_table->fds = fds;
     fd_table->next_unused_fd = 2;
+
+    // struct list *fds = malloc(sizeof(struct list));
+    // list_init(fds);
+    // fd_table->fds = fds;
+    // fd_table->next_unused_fd = 2;
 }
 
 

@@ -61,38 +61,35 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // check if a file is open
         // return error
       // write to a file using write_file in "filesys/file.h"
-      // return the number of bytes actually written (which is returned from write_file)
-
-
-      
+      // return the number of bytes actually written (which is returned from write_file) 
       int fd = args[1];
       const void *buffer = (const void*) args[2];
       unsigned size = args[3];
 
-      // get file and fd_table. You can find it in process.h and file.h
-      struct fd_table *fd_table = thread_current()->pcb->fd_table;
-      struct file *file = get_file_pointer(fd_table, fd);
-
-      // check if file is open (maybe function in file-descriptor.c) return -1 if not
-      if (find(fd_table, fd) == NULL) {
-        f->eax = -1;
-        // need to exit kernel
-        return;
-      }
-
-      if (can_write_to_file(file)) {
-        f->eax = -1;
-        // need to exit kernel
-        return;
-      }
-
       if(fd == 1) { // stdout case
         putbuf((const char*) buffer, (size_t) size);  
-      } else {
+      } else { 
+        // get file and fd_table. You can find it in process.h and file.h
+        struct fd_table *fd_table = thread_current()->pcb->fd_table;
+        struct file *file = get_file_pointer(fd_table, fd);
+
+        // check if file is open (maybe function in file-descriptor.c) return -1 if not
+        if (find(fd_table, fd) == NULL) {
+          f->eax = -1;
+          // need to exit kernel
+          return;
+        }
+
+        if (can_write_to_file(file)) {
+          f->eax = -1;
+          // need to exit kernel
+          return;
+        }
         int bytes_written = file_write(file, buffer, (off_t) size);
         f -> eax = bytes_written;
       }
   }
+}
   // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor
 // synchronization is not assumed in this code thus it has to be wrapped by mutex or semaphore
 // int write_from_buffer(int fd, const *buffer, unsigned size) {
@@ -127,4 +124,3 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
 */
   
-}

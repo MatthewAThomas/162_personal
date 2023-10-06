@@ -59,10 +59,6 @@ pid_t process_execute(const char* file_name) {
   sema_init(&temporary, 0);
   // Todo: need to prevent executable from being edited with file_deny_write
 
-
-  
-
-
   // Make a copy of FILE_NAME.
   //   Otherwise there's a race between the caller and load().
   fn_copy = palloc_get_page(0);
@@ -70,21 +66,10 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  
-
-
-  // while ((token = strtok_r(rest, " ", &rest)))
-  //      printf("%s\n", token);
-  
-  // The caller uses registers to pass the first 6 arguments to the callee.  
-  // Given the arguments in left-to-right order, the order of registers used is: 
-  // %rdi, %rsi, %rdx, %rcx, %r8, and %r9.  Any remaining arguments are passed on the 
-  // stack in reverse order so that they can be popped off the stack in order.  
-  // 
-
-
+  char *token, *save_ptr;
+  token = strtok_r(file_name, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
   return tid;
@@ -101,6 +86,7 @@ static void start_process(void* file_name_) {
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
+  // Allocates file descriptor table on the heap to avoid stack overflow
   struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
@@ -216,7 +202,7 @@ static void start_process(void* file_name_) {
   if (!success && fd_table_success) {
     struct fd_table *fd_table_to_free = t->pcb->fd_table;
     // Free file descriptor list
-    if (fd_table_to_free -> fds) free(fd_table_to_free -> fds);
+    if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
     // Free file descriptor table
     free(t->pcb->fd_table);
   }
