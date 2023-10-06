@@ -1,9 +1,14 @@
+#ifndef FILE_DESCRIPTOR_H
+#define FILE_DESCRIPTOR_H
+
 #include "threads/thread.h"
 #include <stdint.h>
 
 #include "userprog/process.h"
 #include <list.h>
 #include "filesys/file.h"
+
+
 
 // Todo: test / review the functions in this file
 
@@ -16,18 +21,18 @@ struct fd_table { // each process gets an fd_table --> need to add to process.h 
 };
 
 struct fd {
-    struct list_elem* list_fd;
+    struct list_elem list_fd;
     int val; // FD value
-    file* file; 
-}
+    struct file* file; 
+};
 
 // static or not static?
-static fd* find(struct* fd_table, int fd);
-static fd* pop(struct* fd_table, int fd);
-static int remove(struct* fd_table, int fd); // -1 on failure, 0 on success
-static fd* add(struct* fd_table, file* file);
-static void init_table(fd_table* table);
-static file* get_file_pointer(struct* fd_table, int fd);
+struct fd* find(struct fd_table *table, int fd);
+struct fd* pop(struct fd_table *table, int fd);
+int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
+struct fd* add(struct fd_table *table, struct file* file);
+void init_table(struct fd_table* table);
+struct file* get_file_pointer(struct fd_table* fd_table, int fd);
 
 // initialize fd_table
 // struct fd_table table;
@@ -39,3 +44,5 @@ static file* get_file_pointer(struct* fd_table, int fd);
 
 // struct list my_list;
 // list_init (&my_list);
+
+#endif

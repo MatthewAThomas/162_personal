@@ -19,7 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "userprog/file-descriptor.h" // added 
+//#include "userprog/file-descriptor.h" // added 
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -58,6 +58,9 @@ pid_t process_execute(const char* file_name) {
 
   sema_init(&temporary, 0);
   // Todo: need to prevent executable from being edited with file_deny_write
+
+
+  
 
 
   // Make a copy of FILE_NAME.
@@ -112,6 +115,7 @@ static void start_process(void* file_name_) {
 
     // Initialize fd_table
     init_table(new_fd_table);
+    
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
 
@@ -198,7 +202,7 @@ static void start_process(void* file_name_) {
 
   // stack argv
   if_.esp = if_.esp - sizeof(char*);
-  memcpy(if_.esp, if_.esp+4, sizeof(char*));
+  memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
 
   // stack argc
   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
@@ -210,8 +214,11 @@ static void start_process(void* file_name_) {
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
   if (!success && fd_table_success) {
-    struct process* fd_table_to_free = t->fd_table;
-    free(pcb_to_free);
+    struct fd_table *fd_table_to_free = t->pcb->fd_table;
+    // Free file descriptor list
+    if (fd_table_to_free -> fds) free(fd_table_to_free -> fds);
+    // Free file descriptor table
+    free(t->pcb->fd_table);
   }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
