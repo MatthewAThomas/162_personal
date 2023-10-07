@@ -125,8 +125,13 @@ When a single file is opened more than once, whether
   close and they do not share a file position.
 */
 int sys_open(const char* file) {
-  return -1;
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct file* file = filesys_open(file);
+  if (file == NULL) {
+    return -1;
+  }
+  struct fd* fd = add(fd_table, file);
+  return fd->val;
 }
 
 
