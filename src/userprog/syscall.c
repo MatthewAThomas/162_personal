@@ -102,8 +102,7 @@ A file may be removed regardless of whether it is open or closed,
   and removing an open file does not close it. 
 */
 bool remove(const char* file) {
-  return false;
-  struct fd_table* table = thread_current()->pcb->fd_table;
+  return filesys_remove(file);
 }
 
 
