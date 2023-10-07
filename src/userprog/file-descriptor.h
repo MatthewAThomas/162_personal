@@ -25,7 +25,6 @@ struct fd {
     struct list_elem list_fd;
     int val; // FD value
     struct file* file; 
-    int offset; // File position
 };
 
 // static or not static?

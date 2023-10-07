@@ -141,8 +141,11 @@ Returns -1 if fd does not correspond to an entry in the file
   descriptor table.
 */
 int sys_filesize(int fd) {
-  return -1;
-  struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct fd* fd = find(thread_current()->pcb->fd_table, fd);
+  if (fd == NULL) {
+    return -1;
+  }
+  return (int)file_length(fd->file);
 }
 
 /* 
@@ -153,9 +156,29 @@ than end of file, such as fd not corresponding to an entry in
 the file descriptor table). STDIN_FILENO reads from the keyboard 
 using the input_getc function in devices/input.c.
 */
-int sys_ead(int fd, void* buffer, unsigned size) {
-  return -1;
-  struct fd_table* fd_table = thread_current()->pcb->fd_table;
+int sys_read(int fd, void* buffer, unsigned size) {
+  // reads from FD and puts bytes into buffer
+  if (fd == 0) {
+    uint8_t curr;
+    uint8_t* buffer = buffer;
+    // size_t total_spaces = sizeof(buffer)/buffer[0]; // todo: use if running to issue involving how big the buffer array is
+    for(int total = 0; total < size; total += 1) {
+      curr = input_getc();
+      buffer[total] = curr;
+    }
+    return size;
+  }
+  else if (fd == 1 || fd < 0) {
+    return -1;
+  }
+  else {
+    struct fd* fd = find(thread_current()->pcb->fd_table, fd);
+    if (fd == NULL) {
+      return -1;
+    }
+    return (int)file_read(fd->file, buffer, (off_t)size);
+  }
+  
 }
 
 /* 
@@ -215,8 +238,11 @@ If fd does not correspond to an entry in the file descriptor
   table, this function should do nothing.
 */
 void sys_seek(int fd, unsigned position) {
-  return;
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct fd* fd = find(fd_table, find);
+  if (fd != NULL) {
+    file_seek(fd->file, (off_t)position);
+  }
 }
 
 
@@ -227,8 +253,12 @@ Returns the position of the next byte to be read or written in
   it can just fail silently.
 */
 unsigned sys_tell(int fd) {
-  return 0;
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct fd* fd = find(fd_table, find);
+  if (fd == NULL) {
+    exit(-1);
+  }
+  return (unsigned)file_tell(fd->file); // todo: need to check for int overflow w/ off_t cast to unsigned
 }
 
 
@@ -240,8 +270,14 @@ If the operation is unsuccessful, it can either exit with -1
   or it can just fail silently.
 */
 void sys_close(int fd) {
-  return;
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct fd* fd = find(fd_table, find);
+  if (fd == NULL) {
+    exit(-1);
+  }
+  if (remove(fd_table, fd) == -1) {
+    exit(-1);
+  }
 }
 
 
