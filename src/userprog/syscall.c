@@ -29,7 +29,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* printf("System call number: %d\n", args[0]); */
 
-  struct process* current_pcb = thread_current()->pcb;
 
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
@@ -62,42 +61,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[2] : buffer
       // args[2] : size unsigned
 
-      // check if a file is open
-        // return error
-      // write to a file using write_file in "filesys/file.h"
-      // return the number of bytes actually written (which is returned from write_file) 
-      int fd = args[1];
-      const void *buffer = (const void*) args[2];
-      unsigned size = args[3];
 
-      if(fd == 1) { // stdout case
-        putbuf((const char*) buffer, (size_t) size);  
-      } else { 
-        // get file and fd_table. You can find it in process.h and file.h
-        struct fd_table *fd_table = thread_current()->pcb->fd_table;
-        struct file *file = get_file_pointer(fd_table, fd);
-
-        // check if file is open (maybe function in file-descriptor.c) return -1 if not
-        if (find(fd_table, fd) == NULL) {
-          f->eax = -1;
-          // need to exit kernel
-          return;
-        }
-
-        if (can_write_to_file(file)) { // justice for matthew
-          f->eax = -1;
-          // need to exit kernel
-          return;
-        }
-        int bytes_written = file_write(file, buffer, (off_t) size);
-        f -> eax = bytes_written;
-      }
   }
   
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
       f->eax = practice(args[1]);
+      return;
   }
   else if (args[0] == SYS_HALT) {
       // printf("System call number: %d\n", args[0]);
@@ -121,8 +92,8 @@ Returns true if successful, false otherwise.
 Creating a new file does not open it: opening the new file is 
   a separate operation which would require an open system call.
 */
-bool create(const char* file, unsigned initial_size) {
-  return false;
+bool sys_create(const char* file, unsigned initial_size) {
+  return filesys_create(file, (off_t)initial_size);
 }
 
 
@@ -132,8 +103,8 @@ Returns true if successful, false otherwise.
 A file may be removed regardless of whether it is open or closed, 
   and removing an open file does not close it. 
 */
-bool remove(const char* file) {
-  return false;
+bool sys_remove(const char* file) {
+  return filesys_remove(file);
 }
 
 
@@ -155,8 +126,9 @@ When a single file is opened more than once, whether
   are closed independently in separate calls to 
   close and they do not share a file position.
 */
-int open(const char* file) {
+int sys_open(const char* file) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -165,8 +137,9 @@ Returns the size, in bytes, of the open file with file descriptor fd.
 Returns -1 if fd does not correspond to an entry in the file 
   descriptor table.
 */
-int filesize(int fd) {
+int sys_filesize(int fd) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 /* 
@@ -177,8 +150,9 @@ than end of file, such as fd not corresponding to an entry in
 the file descriptor table). STDIN_FILENO reads from the keyboard 
 using the input_getc function in devices/input.c.
 */
-int read(int fd, void* buffer, unsigned size) {
+int sys_ead(int fd, void* buffer, unsigned size) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 /* 
@@ -194,8 +168,38 @@ File descriptor 1 writes to the console.
   at least as long as size is not bigger than a few hundred bytes and 
   should break up larger buffers in the process.
 */
-int write(int fd, const void* buffer, unsigned size) {
-  return -1;
+int sys_write(int fd, const void* buffer, unsigned size) {
+  // return -1;
+  // check if a file is open
+  // return error
+  // write to a file using write_file in "filesys/file.h"
+  // return the number of bytes actually written (which is returned from write_file) 
+  int fd = args[1];
+  const void *buffer = (const void*) args[2];
+  unsigned size = args[3];
+  if(fd == 1) { // stdout case
+    putbuf((const char*) buffer, (size_t) size);  
+  } 
+  else { 
+  // get file and fd_table. You can find it in process.h and file.h
+  struct fd_table *fd_table = thread_current()->pcb->fd_table;
+  struct file *file = get_file_pointer(fd_table, fd);
+
+  // check if file is open (maybe function in file-descriptor.c) return -1 if not
+  if (find(fd_table, fd) == NULL) {
+    f->eax = -1;
+    // need to exit kernel
+    return;
+  }
+
+  if (can_write_to_file(file)) { // justice for matthew
+    f->eax = -1;
+    // need to exit kernel
+    return;
+  }
+  int bytes_written = file_write(file, buffer, (off_t) size);
+  f -> eax = bytes_written;
+  }
 }
 
 
@@ -207,8 +211,9 @@ Changes the next byte to be read or written in open file fd to
 If fd does not correspond to an entry in the file descriptor 
   table, this function should do nothing.
 */
-void seek(int fd, unsigned position) {
+void sys_seek(int fd, unsigned position) {
   return;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -218,8 +223,9 @@ Returns the position of the next byte to be read or written in
   If the operation is unsuccessful, it can either exit with -1 or 
   it can just fail silently.
 */
-unsigned tell(int fd) {
+unsigned sys_tell(int fd) {
   return 0;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -230,8 +236,9 @@ Closes file descriptor fd. Exiting or terminating a process must
 If the operation is unsuccessful, it can either exit with -1 
   or it can just fail silently.
 */
-void close(int fd) {
+void sys_close(int fd) {
   return;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -240,7 +247,7 @@ A “fake” syscall designed to get you familiar with the syscall
 interface This syscall increments the passed in integer argument 
 by 1 and returns it to the user.
 */
-int practice(int i) {
+int sys_practice(int i) {
   return i + 1;
 }
 
@@ -251,7 +258,7 @@ Terminates Pintos by calling the shutdown_power_off
   because you lose some information about possible deadlock 
   situations, etc.
 */
-void halt(void) {
+void sys_halt(void) {
   return;
 }
 
@@ -270,7 +277,7 @@ In order to make the test suite pass, you need to print out the
   should be %s: exit(%d) followed by a newline, where the process 
   name and exit code respectively subsitute %s and %d.
 */
-void exit(int status) {
+void sys_exit(int status) {
   return;
 }
 
@@ -284,7 +291,7 @@ Runs the executable whose name is given in cmd_line, passing any
   executable. You must use appropriate synchronization to ensure 
   this.
 */
-pid_t exec(const char* cmd_line) {
+pid_t sys_exec(const char* cmd_line) {
   return NULL;
 }
 
@@ -307,7 +314,7 @@ wait must fail and return -1 immediately if any of the
     3) If pid did not call exit but was terminated by the kernel 
       (e.g. killed due to an exception), wait must return -1. 
 */
-int wait(pid_t pid) {
+int sys_wait(pid_t pid) {
   return -1;
 }
 
