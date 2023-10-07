@@ -19,6 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+//#include "userprog/file-descriptor.h" // added 
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -56,6 +57,8 @@ pid_t process_execute(const char* file_name) {
   tid_t tid;
 
   sema_init(&temporary, 0);
+  // Todo: need to prevent executable from being edited with file_deny_write
+
   // Make a copy of FILE_NAME.
   //   Otherwise there's a race between the caller and load().
   fn_copy = palloc_get_page(0);
@@ -63,19 +66,10 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-
-  // while ((token = strtok_r(rest, " ", &rest)))
-  //      printf("%s\n", token);
-  
-  // The caller uses registers to pass the first 6 arguments to the callee.  
-  // Given the arguments in left-to-right order, the order of registers used is: 
-  // %rdi, %rsi, %rdx, %rcx, %r8, and %r9.  Any remaining arguments are passed on the 
-  // stack in reverse order so that they can be popped off the stack in order.  
-  // 
-
-
+  char *token, *save_ptr;
+  token = strtok_r(file_name, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
   return tid;
@@ -88,11 +82,15 @@ static void start_process(void* file_name_) {
   char* file_name = (char*)file_name_;
   struct thread* t = thread_current();
   struct intr_frame if_;
-  bool success, pcb_success;
+  bool success, pcb_success, fd_table_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
-  success = pcb_success = new_pcb != NULL;
+  // Allocates file descriptor table on the heap to avoid stack overflow
+  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  pcb_success = new_pcb != NULL;
+  fd_table_success = new_fd_table != NULL;
+  success = pcb_success && fd_table_success;
 
   /* Initialize process control block */
   if (success) {
@@ -100,6 +98,12 @@ static void start_process(void* file_name_) {
     // does not try to activate our uninitialized pagedir
     new_pcb->pagedir = NULL;
     t->pcb = new_pcb;
+
+    // Initialize fd_table
+    init_table(new_fd_table);
+    
+    // Set new_fd_table as the fd_table of new_pcb
+    new_pcb -> fd_table = new_fd_table;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -184,7 +188,7 @@ static void start_process(void* file_name_) {
 
   // stack argv
   if_.esp = if_.esp - sizeof(char*);
-  memcpy(if_.esp, if_.esp+4, sizeof(char*));
+  memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
 
   // stack argc
   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
@@ -194,6 +198,14 @@ static void start_process(void* file_name_) {
   if_.esp = if_.esp - sizeof(void*);
   memset(if_.esp, 0, sizeof(void*));
 
+  /* Handle failure with successful fd_table malloc. Must free fd_table*/
+  if (!success && fd_table_success) {
+    struct fd_table *fd_table_to_free = t->pcb->fd_table;
+    // Free file descriptor list
+    if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
+    // Free file descriptor table
+    free(t->pcb->fd_table);
+  }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {

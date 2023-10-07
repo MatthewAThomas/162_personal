@@ -2,6 +2,7 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include <stdbool.h>
 
 // test
 
@@ -91,6 +92,12 @@ off_t file_write(struct file* file, const void* buffer, off_t size) {
    The file's current position is unaffected. */
 off_t file_write_at(struct file* file, const void* buffer, off_t size, off_t file_ofs) {
   return inode_write_at(file->inode, buffer, size, file_ofs);
+}
+
+// added
+/* Returns True if the file can be written to, False if not. */
+bool can_write_to_file(struct file* file) {
+  return !(file->deny_write);
 }
 
 /* Prevents write operations on FILE's underlying inode
