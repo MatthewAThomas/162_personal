@@ -29,7 +29,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* printf("System call number: %d\n", args[0]); */
 
-  struct process* current_pcb = thread_current()->pcb;
 
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
@@ -60,42 +59,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[2] : buffer
       // args[2] : size unsigned
 
-      // check if a file is open
-        // return error
-      // write to a file using write_file in "filesys/file.h"
-      // return the number of bytes actually written (which is returned from write_file) 
-      int fd = args[1];
-      const void *buffer = (const void*) args[2];
-      unsigned size = args[3];
 
-      if(fd == 1) { // stdout case
-        putbuf((const char*) buffer, (size_t) size);  
-      } else { 
-        // get file and fd_table. You can find it in process.h and file.h
-        struct fd_table *fd_table = thread_current()->pcb->fd_table;
-        struct file *file = get_file_pointer(fd_table, fd);
-
-        // check if file is open (maybe function in file-descriptor.c) return -1 if not
-        if (find(fd_table, fd) == NULL) {
-          f->eax = -1;
-          // need to exit kernel
-          return;
-        }
-
-        if (can_write_to_file(file)) { // justice for matthew
-          f->eax = -1;
-          // need to exit kernel
-          return;
-        }
-        int bytes_written = file_write(file, buffer, (off_t) size);
-        f -> eax = bytes_written;
-      }
   }
   
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
       f->eax = practice(args[1]);
+      return;
   }
   else if (args[0] == SYS_HALT) {
       // printf("System call number: %d\n", args[0]);
@@ -120,7 +91,7 @@ Creating a new file does not open it: opening the new file is
   a separate operation which would require an open system call.
 */
 bool create(const char* file, unsigned initial_size) {
-  return false;
+  return filesys_create(file, (off_t)initial_size);
 }
 
 
@@ -132,6 +103,7 @@ A file may be removed regardless of whether it is open or closed,
 */
 bool remove(const char* file) {
   return false;
+  struct fd_table* table = thread_current()->pcb->fd_table;
 }
 
 
@@ -155,6 +127,7 @@ When a single file is opened more than once, whether
 */
 int open(const char* file) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -165,6 +138,7 @@ Returns -1 if fd does not correspond to an entry in the file
 */
 int filesize(int fd) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 /* 
@@ -177,6 +151,7 @@ using the input_getc function in devices/input.c.
 */
 int read(int fd, void* buffer, unsigned size) {
   return -1;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 /* 
@@ -193,7 +168,37 @@ File descriptor 1 writes to the console.
   should break up larger buffers in the process.
 */
 int write(int fd, const void* buffer, unsigned size) {
-  return -1;
+  // return -1;
+  // check if a file is open
+  // return error
+  // write to a file using write_file in "filesys/file.h"
+  // return the number of bytes actually written (which is returned from write_file) 
+  int fd = args[1];
+  const void *buffer = (const void*) args[2];
+  unsigned size = args[3];
+  if(fd == 1) { // stdout case
+    putbuf((const char*) buffer, (size_t) size);  
+  } 
+  else { 
+  // get file and fd_table. You can find it in process.h and file.h
+  struct fd_table *fd_table = thread_current()->pcb->fd_table;
+  struct file *file = get_file_pointer(fd_table, fd);
+
+  // check if file is open (maybe function in file-descriptor.c) return -1 if not
+  if (find(fd_table, fd) == NULL) {
+    f->eax = -1;
+    // need to exit kernel
+    return;
+  }
+
+  if (can_write_to_file(file)) { // justice for matthew
+    f->eax = -1;
+    // need to exit kernel
+    return;
+  }
+  int bytes_written = file_write(file, buffer, (off_t) size);
+  f -> eax = bytes_written;
+  }
 }
 
 
@@ -207,6 +212,7 @@ If fd does not correspond to an entry in the file descriptor
 */
 void seek(int fd, unsigned position) {
   return;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -218,6 +224,7 @@ Returns the position of the next byte to be read or written in
 */
 unsigned tell(int fd) {
   return 0;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
@@ -230,6 +237,7 @@ If the operation is unsuccessful, it can either exit with -1
 */
 void close(int fd) {
   return;
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
 }
 
 
