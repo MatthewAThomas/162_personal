@@ -8,8 +8,9 @@
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
 
-//#include "file-descriptor.h" 
-
+//Added 
+#include "file-descriptor.h" 
+#include "userprog/process.h"
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
 
 static void syscall_handler(struct intr_frame*);
@@ -28,12 +29,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   /* printf("System call number: %d\n", args[0]); */
 
+  struct process* current_pcb = thread_current()->pcb;
+
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
   } 
-  /*
+  
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {
     // printf("System call number: %d\n", args[0]);
@@ -50,7 +53,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   else if (args[0] == SYS_READ) {
       // printf("System call number: %d\n", args[0]);
   }
-  */
   else if (args[0] == SYS_WRITE) {
       // printf("System call number: %d\n", args[0]);
       // how the hell do I get int fd, const void *buffer, unsigned size using args?
@@ -89,6 +91,25 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         f -> eax = bytes_written;
       }
   }
+  
+  // Start of process syscalls
+  else if (args[0] == SYS_PRACTICE) {
+      // printf("System call number: %d\n", args[0]);
+      f->eax = practice(args[1]);
+  }
+  else if (args[0] == SYS_HALT) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_EXIT) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_EXEC) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_WAIT) {
+      // printf("System call number: %d\n", args[0]);
+  }
+  
 }
 
 
@@ -212,6 +233,81 @@ void close(int fd) {
 }
 
 
+/* 
+A “fake” syscall designed to get you familiar with the syscall 
+interface This syscall increments the passed in integer argument 
+by 1 and returns it to the user.
+*/
+int practice(int i) {
+  return i + 1;
+}
+
+
+/* 
+Terminates Pintos by calling the shutdown_power_off 
+  function in devices/shutdown.h. This should be seldom used, 
+  because you lose some information about possible deadlock 
+  situations, etc.
+*/
+void halt(void) {
+  return;
+}
+
+
+/* 
+Terminates the current user program, returning status to the kernel. 
+If the process’s parent waits for it (see below), this is the status 
+  that will be returned. 
+  Conventionally, a status of 0 indicates success and nonzero values 
+  indicate errors. Every user program that finishes in normally calls 
+  exit – even a program that returns from main calls exit indirectly 
+  (see Program Startup). 
+  
+In order to make the test suite pass, you need to print out the 
+  exit status of each user program when it exits. The format 
+  should be %s: exit(%d) followed by a newline, where the process 
+  name and exit code respectively subsitute %s and %d.
+*/
+void exit(int status) {
+  return;
+}
+
+
+/* 
+Runs the executable whose name is given in cmd_line, passing any 
+  given arguments, and returns the new process’s program id (pid). 
+  If the program cannot load or run for any reason, return -1. 
+  Thus, the parent process cannot return from a call to exec until 
+  it knows whether the child process successfully loaded its 
+  executable. You must use appropriate synchronization to ensure 
+  this.
+*/
+pid_t exec(const char* cmd_line) {
+  return NULL;
+}
+
+
+/* 
+Waits for a child process pid and retrieves the child’s exit status. 
+If pid is still alive, waits until it terminates. Then, returns the 
+  status that pid passed to exit. 
+  It is perfectly legal for a parent process to wait for 
+  child processes that have already terminated by the time the 
+  parent calls wait, but the kernel must still allow the parent to 
+  retrieve its child’s exit status, or learn that the child was 
+  terminated by the kernel.
+
+wait must fail and return -1 immediately if any of the 
+  following conditions are true:
+    1) pid does not refer to a direct child of the calling process.
+    2) The process that calls wait has already called wait on pid. 
+      That is, a process may wait for any given child at most once.
+    3) If pid did not call exit but was terminated by the kernel 
+      (e.g. killed due to an exception), wait must return -1. 
+*/
+int wait(pid_t pid) {
+  return -1;
+}
 
 
   // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor
