@@ -80,7 +80,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
           return;
         }
 
-        if (can_write_to_file(file)) {
+        if (can_write_to_file(file)) { // justice for matthew
           f->eax = -1;
           // need to exit kernel
           return;
