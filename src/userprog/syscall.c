@@ -90,6 +90,130 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       }
   }
 }
+
+
+/* 
+Creates a new file called file initially initial_size bytes in size. 
+Returns true if successful, false otherwise. 
+Creating a new file does not open it: opening the new file is 
+  a separate operation which would require an open system call.
+*/
+bool create(const char* file, unsigned initial_size) {
+  return false;
+}
+
+
+/*
+Deletes the file named file. 
+Returns true if successful, false otherwise.
+A file may be removed regardless of whether it is open or closed, 
+  and removing an open file does not close it. 
+*/
+bool remove(const char* file) {
+  return false;
+}
+
+
+/*
+Opens the file named file. 
+Returns a nonnegative integer handle called a “file descriptor” (fd), 
+  or -1 if the file could not be opened.
+
+File descriptors numbered 0 and 1 are reserved for the console: 
+  0 (STDIN_FILENO) is standard input and 1 (STDOUT_FILENO) is 
+  standard output. 
+  open should never return either of these file descriptors.
+
+Each process has an independent set of file descriptors.
+When a single file is opened more than once, whether 
+  by a single process or different processes, 
+  each open returns a new file descriptor. 
+  Different file descriptors for a single file 
+  are closed independently in separate calls to 
+  close and they do not share a file position.
+*/
+int open(const char* file) {
+  return -1;
+}
+
+
+/* 
+Returns the size, in bytes, of the open file with file descriptor fd. 
+Returns -1 if fd does not correspond to an entry in the file 
+  descriptor table.
+*/
+int filesize(int fd) {
+  return -1;
+}
+
+/* 
+Reads size bytes from the file open as fd into buffer. 
+Returns the number of bytes actually read (0 at end of file), 
+or -1 if the file could not be read (due to a condition other 
+than end of file, such as fd not corresponding to an entry in 
+the file descriptor table). STDIN_FILENO reads from the keyboard 
+using the input_getc function in devices/input.c.
+*/
+int read(int fd, void* buffer, unsigned size) {
+  return -1;
+}
+
+/* 
+Writes size bytes from buffer to the open file with 
+  file descriptor fd. 
+Returns the number of bytes actually written, which may be less 
+  than size if some bytes could not be written. 
+  Returns -1 if fd does not correspond to an entry in the 
+  file descriptor table.
+File descriptor 1 writes to the console. 
+  Your code to write to the console should write all of buffer 
+  in one call to the putbuf function lib/kernel/console.c, 
+  at least as long as size is not bigger than a few hundred bytes and 
+  should break up larger buffers in the process.
+*/
+int write(int fd, const void* buffer, unsigned size) {
+  return -1;
+}
+
+
+/* 
+Changes the next byte to be read or written in open file fd to 
+  position, expressed in bytes from the beginning of the file. 
+  Thus, a position of 0 is the file’s start. In other words,
+  this changes the offset associated with the fd.
+If fd does not correspond to an entry in the file descriptor 
+  table, this function should do nothing.
+*/
+void seek(int fd, unsigned position) {
+  return;
+}
+
+
+/* 
+Returns the position of the next byte to be read or written in 
+  open file fd, expressed in bytes from the beginning of the file. 
+  If the operation is unsuccessful, it can either exit with -1 or 
+  it can just fail silently.
+*/
+unsigned tell(int fd) {
+  return 0;
+}
+
+
+/* 
+Closes file descriptor fd. Exiting or terminating a process must 
+  implicitly close all its open file descriptors, as if by 
+  calling this function for each one. 
+If the operation is unsuccessful, it can either exit with -1 
+  or it can just fail silently.
+*/
+void close(int fd) {
+  return;
+}
+
+
+
+
   // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor
 // synchronization is not assumed in this code thus it has to be wrapped by mutex or semaphore
 // int write_from_buffer(int fd, const *buffer, unsigned size) {
