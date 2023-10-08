@@ -183,29 +183,33 @@ static void start_process(void* file_name_) {
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
     if_.esp = if_.esp - sizeof(char*);
-    memcpy(if_.esp, argv_addr[argc-i-1], sizeof(char*));
+    //memcpy(if_.esp, argv_addr[argc-i-1], sizeof(char*));
+    *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
   }
 
   // stack argv
   if_.esp = if_.esp - sizeof(char*);
-  memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
-
+  //memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
+  *(char**)if_.esp = *(char**)(if_.esp + 4);
+  
   // stack argc
   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
-  memset(if_.esp, argc, sizeof(int));
+  //memset(if_.esp, argc, sizeof(int));
+  *(int *)if_.esp = argc;
 
   // stack fake address
   if_.esp = if_.esp - sizeof(void*);
-  memset(if_.esp, 0, sizeof(void*));
+  // memset(if_.esp, 0, sizeof(void*));
+  *(void**)if_.esp = NULL;
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
-  if (!success && fd_table_success) {
-    struct fd_table *fd_table_to_free = t->pcb->fd_table;
-    // Free file descriptor list
-    if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
-    // Free file descriptor table
-    free(t->pcb->fd_table);
-  }
+  // if (!success && fd_table_success) {
+  //   struct fd_table *fd_table_to_free = t->pcb->fd_table;
+  //   // Free file descriptor list
+  //   if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
+  //   // Free file descriptor table
+  //   free(t->pcb->fd_table);
+  // }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {

@@ -55,20 +55,18 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // printf("System call number: %d\n", args[0]);
   }
   else if (args[0] == SYS_WRITE) {
-      // printf("System call number: %d\n", args[0]);
-      // how the hell do I get int fd, const void *buffer, unsigned size using args?
-      // args[1] : fd
-      // args[2] : buffer
-      // args[2] : size unsigne
-      int eax = sys_write(args[1], args[2], args[3]);
-      f->eax = eax;
-  }
-  
-  // Start of process syscalls
-  else if (args[0] == SYS_PRACTICE) {
-      // printf("System call number: %d\n", args[0]);
-      f->eax = sys_practice(args[1]);
-      return;
+    // printf("System call number: %d\n", args[0]);
+    // how the hell do I get int fd, const void *buffer, unsigned size using args?
+    // args[1] : fd
+    // args[2] : buffer
+    // args[2] : size unsigne
+    putbuf((const char*) args[2], (size_t) args[3]);
+    f->eax = args[3];
+    return;
+  } else if (args[0] == SYS_PRACTICE) {// Start of process syscalls
+    // printf("System call number: %d\n", args[0]);
+    f->eax = sys_practice(args[1]);
+    return;
   }
   else if (args[0] == SYS_HALT) {
       // printf("System call number: %d\n", args[0]);
@@ -169,37 +167,37 @@ File descriptor 1 writes to the console.
   at least as long as size is not bigger than a few hundred bytes and 
   should break up larger buffers in the process.
 */
-int sys_write(int fd, const void* buffer, unsigned size) {
-  // return -1;
-  // check if a file is open
-  // return error
-  // write to a file using write_file in "filesys/file.h"
-  // return the number of bytes actually written (which is returned from write_file) 
-  if(fd == 1) { // stdout case
-    putbuf((const char*) buffer, (size_t) size);  
-  } 
-  else { 
-    // get file and fd_table. You can find it in process.h and file.h
-    struct fd_table *fd_table = thread_current()->pcb->fd_table;
-    struct file *file = get_file_pointer(fd_table, fd);
+// int sys_write(int fd, const void* buffer, unsigned size) {
+//   // return -1;
+//   // check if a file is open
+//   // return error
+//   // write to a file using write_file in "filesys/file.h"
+//   // return the number of bytes actually written (which is returned from write_file) 
+//   if(fd == 1) { // stdout case
+//     putbuf((const char*) buffer, (size_t) size);  
+//   } 
+//   else { 
+//     // get file and fd_table. You can find it in process.h and file.h
+//     struct fd_table *fd_table = thread_current()->pcb->fd_table;
+//     struct file *file = get_file_pointer(fd_table, fd);
 
-    // check if file is open (maybe function in file-descriptor.c) return -1 if not
-    if (find(fd_table, fd) == NULL) {
-      // need to exit kernel
-      return -1;
-    }
+//     // check if file is open (maybe function in file-descriptor.c) return -1 if not
+//     if (find(fd_table, fd) == NULL) {
+//       // need to exit kernel
+//       return -1;
+//     }
 
-    if (can_write_to_file(file)) { // justice for matthew
-      //f->eax = -1;
-      // need to exit kernel
-      return -1;
-    }
-    int bytes_written = file_write(file, buffer, (off_t) size);
-    //f -> eax = bytes_written;
-    return bytes_written;
+//     if (can_write_to_file(file)) { // justice for matthew
+//       //f->eax = -1;
+//       // need to exit kernel
+//       return -1;
+//     }
+//     int bytes_written = file_write(file, buffer, (off_t) size);
+//     //f -> eax = bytes_written;
+//     return bytes_written;
     
-  }
-}
+//   }
+// }
 
 //   if (can_write_to_file(file)) { // justice for matthew
 //     f->eax = -1;
