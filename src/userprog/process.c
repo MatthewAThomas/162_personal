@@ -83,17 +83,16 @@ static void start_process(void* file_name_) {
   struct thread* t = thread_current();
   struct intr_frame if_;
   bool success, pcb_success;
-  //bool fd_table_success;
+  bool fd_table_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
-  // Allocates file descriptor table on the heap to avoid stack overflow
-  // struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
-  // pcb_success = new_pcb != NULL;
-  // fd_table_success = new_fd_table != NULL;
-  //success = pcb_success && fd_table_success;
-  success = pcb_success = new_pcb != NULL;
-  
+  //Allocates file descriptor table on the heap to avoid stack overflow
+  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  pcb_success = new_pcb != NULL;
+  fd_table_success = new_fd_table != NULL;
+  success = pcb_success && fd_table_success;
+ 
   /* Initialize process control block */
   if (success) {
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
@@ -102,10 +101,10 @@ static void start_process(void* file_name_) {
     t->pcb = new_pcb;
 
     // Initialize fd_table
-    //init_table(new_fd_table);
+    init_table(new_fd_table);
     
     // Set new_fd_table as the fd_table of new_pcb
-    //new_pcb -> fd_table = new_fd_table;
+    new_pcb -> fd_table = new_fd_table;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -208,13 +207,13 @@ static void start_process(void* file_name_) {
 
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
-  // if (!success && fd_table_success) {
-  //   struct fd_table *fd_table_to_free = t->pcb->fd_table;
-  //   // Free file descriptor list
-  //   if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
-  //   // Free file descriptor table
-  //   free(t->pcb->fd_table);
-  // }
+  if (!success && fd_table_success) {
+    struct fd_table *fd_table_to_free = t->pcb->fd_table;
+    // Free file descriptor list
+    if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
+    // Free file descriptor table
+    free(t->pcb->fd_table);
+  }
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {
