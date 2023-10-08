@@ -1,6 +1,13 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
+#include "file-descriptor.h" // added starting here
+#include "userprog/process.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
 void syscall_init(void);
 
 // Start of file operations syscalls

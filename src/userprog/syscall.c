@@ -8,13 +8,10 @@
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
 
-//Added 
-#include "file-descriptor.h" 
-#include "userprog/process.h"
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
+#include "filesys/filesys.h" // added here
+#include "devices/input.h"
+
+
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
 
 static void syscall_handler(struct intr_frame*);
@@ -62,14 +59,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[1] : fd
       // args[2] : buffer
       // args[2] : size unsigned
-
-
+      f->eax = sys_write(args[1], (const void*)args[2], args[3]);
   }
   
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
-      f->eax = practice(args[1]);
+      f->eax = sys_practice(args[1]);
       return;
   }
   else if (args[0] == SYS_HALT) {
@@ -84,7 +80,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   else if (args[0] == SYS_WAIT) {
       // printf("System call number: %d\n", args[0]);
   }
-  
+  return;
 }
 
 
@@ -128,9 +124,9 @@ When a single file is opened more than once, whether
   are closed independently in separate calls to 
   close and they do not share a file position.
 */
-int sys_open(const char* file) {
+int sys_open(const char* name) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
-  struct file* file = filesys_open(file);
+  struct file* file = filesys_open(name);
   if (file == NULL) {
     return -1;
   }
@@ -145,11 +141,11 @@ Returns -1 if fd does not correspond to an entry in the file
   descriptor table.
 */
 int sys_filesize(int fd) {
-  struct fd* fd = find(thread_current()->pcb->fd_table, fd);
-  if (fd == NULL) {
+  struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+  if (file_desc == NULL) {
     return -1;
   }
-  return (int)file_length(fd->file);
+  return (int)file_length(file_desc->file);
 }
 
 /* 
@@ -166,7 +162,7 @@ int sys_read(int fd, void* buffer, unsigned size) {
     uint8_t curr;
     uint8_t* buffer = buffer;
     // size_t total_spaces = sizeof(buffer)/buffer[0]; // todo: use if running to issue involving how big the buffer array is
-    for(int total = 0; total < size; total += 1) {
+    for(int total = 0; total < (int)size; total += 1) {
       curr = input_getc();
       buffer[total] = curr;
     }
@@ -176,11 +172,11 @@ int sys_read(int fd, void* buffer, unsigned size) {
     return -1;
   }
   else {
-    struct fd* fd = find(thread_current()->pcb->fd_table, fd);
-    if (fd == NULL) {
+    struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+    if (file_desc == NULL) {
       return -1;
     }
-    return (int)file_read(fd->file, buffer, (off_t)size);
+    return (int)file_read(file_desc->file, buffer, (off_t)size);
   }
   
 }
@@ -204,31 +200,35 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   // return error
   // write to a file using write_file in "filesys/file.h"
   // return the number of bytes actually written (which is returned from write_file) 
-  int fd = args[1];
-  const void *buffer = (const void*) args[2];
-  unsigned size = args[3];
+  
+  // commented out due to change to being inside a function and not in the syscall handler
+  //int fd = args[1];
+  //const void *buffer = (const void*) args[2];
+  //unsigned size = args[3];
   if(fd == 1) { // stdout case
     putbuf((const char*) buffer, (size_t) size);  
+    return 0; // arbitrary; TODO
   } 
   else { 
-  // get file and fd_table. You can find it in process.h and file.h
-  struct fd_table *fd_table = thread_current()->pcb->fd_table;
-  struct file *file = get_file_pointer(fd_table, fd);
+    // get file and fd_table. You can find it in process.h and file.h
+    struct fd_table *fd_table = thread_current()->pcb->fd_table;
+    struct file *file = get_file_pointer(fd_table, fd);
 
-  // check if file is open (maybe function in file-descriptor.c) return -1 if not
-  if (find(fd_table, fd) == NULL) {
-    f->eax = -1;
-    // need to exit kernel
-    return;
-  }
+    // check if file is open (maybe function in file-descriptor.c) return -1 if not
+    if (find(fd_table, fd) == NULL) {
+      // f->eax = -1;
+      // need to exit kernel
+      return -1;
+    }
 
-  if (can_write_to_file(file)) { // justice for matthew
-    f->eax = -1;
-    // need to exit kernel
-    return;
-  }
-  int bytes_written = file_write(file, buffer, (off_t) size);
-  f -> eax = bytes_written;
+    if (can_write_to_file(file)) { // justice for matthew
+      // f->eax = -1;
+      // need to exit kernel
+      return -1;
+    }
+    int bytes_written = file_write(file, buffer, (off_t) size);
+    // f -> eax = bytes_written;
+    return bytes_written;
   }
 }
 
@@ -243,9 +243,9 @@ If fd does not correspond to an entry in the file descriptor
 */
 void sys_seek(int fd, unsigned position) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
-  struct fd* fd = find(fd_table, find);
-  if (fd != NULL) {
-    file_seek(fd->file, (off_t)position);
+  struct fd* file_desc = find(fd_table, fd);
+  if (file_desc != NULL) {
+    file_seek(file_desc->file, (off_t)position);
   }
 }
 
@@ -258,11 +258,11 @@ Returns the position of the next byte to be read or written in
 */
 unsigned sys_tell(int fd) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
-  struct fd* fd = find(fd_table, find);
-  if (fd == NULL) {
+  struct fd* file_desc = find(fd_table, fd);
+  if (file_desc == NULL) {
     sys_exit(-1);
   }
-  return (unsigned)file_tell(fd->file); // todo: need to check for int overflow w/ off_t cast to unsigned
+  return (unsigned)file_tell(file_desc->file); // todo: need to check for int overflow w/ off_t cast to unsigned
 }
 
 
@@ -275,8 +275,8 @@ If the operation is unsuccessful, it can either exit with -1
 */
 void sys_close(int fd) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
-  struct fd* fd = find(fd_table, find);
-  if (fd == NULL) {
+  struct fd* file_desc = find(fd_table, fd);
+  if (file_desc == NULL) {
     sys_exit(-1);
   }
   if (remove(fd_table, fd) == -1) {

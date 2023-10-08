@@ -23,7 +23,7 @@ struct fd* find(struct fd_table* fd_table, int fd) {
     for (e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
         struct fd* file_desc = list_entry(e, struct fd, list_fd);
         if (file_desc != NULL && file_desc->val == fd) {
-            return &file_desc;
+            return file_desc;
         }
     } 
     return NULL;
@@ -65,14 +65,21 @@ int remove(struct fd_table* fd_table, int fd) {
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd* file_descriptor; 
-    file_descriptor->val = fd_table->next_unused_fd;
-    fd_table->next_unused_fd += 1;
-    file_descriptor->file = file;
+    struct fd file_descriptor; 
+    //memset(file_descriptor, 0, sizeof *file_descriptor); // todo: check if this initializes e correctly
+    
     struct list_elem e;
-    file_descriptor->list_fd = e;
+    //memset(&e, 0, sizeof *(&e)); // todo: check if this initializes e correctly
+    e.prev = NULL; // todo: check if this is correct
+    e.next = NULL; // todo: check if this is correct for initializing e
+    file_descriptor.list_fd = e;
+    file_descriptor.val = fd_table->next_unused_fd;
+    file_descriptor.file = file;
+
+    fd_table->next_unused_fd += 1;
+    file_descriptor.list_fd = e;
     list_push_back(&fd_table->fds, &e);
-    return file_descriptor;
+    return &file_descriptor;
 }
 
 /* 
