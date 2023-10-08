@@ -206,14 +206,15 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   //const void *buffer = (const void*) args[2];
   //unsigned size = args[3];
   if(fd == 1) { // stdout case
-    for (int total = 0; size - total > 0; total += 100) {
-      if (size - total > 100) {
-        putbuf((const char*) buffer, (size_t) (100));  
-      }
-      else {
-        putbuf((const char*) buffer, (size_t) (size - total)); 
-      } 
-    }
+    putbuf((const char*) buffer, (size_t) size);
+    // for (int total = 0; size - total > 0; total += 100) {
+    //   if (size - total > 100) {
+    //     putbuf((const char*) buffer, (size_t) (100));  
+    //   }
+    //   else {
+    //     putbuf((const char*) buffer, (size_t) (size - total)); 
+    //   } 
+    // }
     return size;
   } 
   else if (fd == 0) {

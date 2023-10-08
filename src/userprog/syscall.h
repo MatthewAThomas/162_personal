@@ -13,7 +13,7 @@ void syscall_init(void);
 // Start of file operations syscalls
 bool sys_create(const char* file, unsigned initial_size);
 bool sys_remove(const char* file);
-int sys_open(const char* file);
+int sys_open(const char* name);
 int sys_filesize(int fd);
 int sys_read(int fd, void* buffer, unsigned size);
 int sys_write(int fd, const void* buffer, unsigned size);
