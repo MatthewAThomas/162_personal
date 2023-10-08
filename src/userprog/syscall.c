@@ -206,9 +206,19 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   //const void *buffer = (const void*) args[2];
   //unsigned size = args[3];
   if(fd == 1) { // stdout case
-    putbuf((const char*) buffer, (size_t) size);  
-    return 0; // arbitrary; TODO
+    for (int total = 0; size - total > 0; total += 100) {
+      if (size - total > 100) {
+        putbuf((const char*) buffer, (size_t) (100));  
+      }
+      else {
+        putbuf((const char*) buffer, (size_t) (size - total)); 
+      } 
+    }
+    return size;
   } 
+  else if (fd == 0) {
+    return -1;
+  }
   else { 
     // get file and fd_table. You can find it in process.h and file.h
     struct fd_table *fd_table = thread_current()->pcb->fd_table;
@@ -221,11 +231,12 @@ int sys_write(int fd, const void* buffer, unsigned size) {
       return -1;
     }
 
-    if (can_write_to_file(file)) { // justice for matthew
+    if (!can_write_to_file(file)) { // justice for matthew
       // f->eax = -1;
       // need to exit kernel
       return -1;
     }
+
     int bytes_written = file_write(file, buffer, (off_t) size);
     // f -> eax = bytes_written;
     return bytes_written;
