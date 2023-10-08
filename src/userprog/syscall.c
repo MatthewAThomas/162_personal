@@ -11,6 +11,10 @@
 //Added 
 #include "file-descriptor.h" 
 #include "userprog/process.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
 
 static void syscall_handler(struct intr_frame*);
@@ -256,7 +260,7 @@ unsigned sys_tell(int fd) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* fd = find(fd_table, find);
   if (fd == NULL) {
-    exit(-1);
+    sys_exit(-1);
   }
   return (unsigned)file_tell(fd->file); // todo: need to check for int overflow w/ off_t cast to unsigned
 }
@@ -273,10 +277,10 @@ void sys_close(int fd) {
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* fd = find(fd_table, find);
   if (fd == NULL) {
-    exit(-1);
+    sys_exit(-1);
   }
   if (remove(fd_table, fd) == -1) {
-    exit(-1);
+    sys_exit(-1);
   }
 }
 
@@ -317,6 +321,7 @@ In order to make the test suite pass, you need to print out the
   name and exit code respectively subsitute %s and %d.
 */
 void sys_exit(int status) {
+  printf("%s: exit(%d)", thread_current()->pcb->process_name, status);
   return;
 }
 
@@ -330,8 +335,9 @@ Runs the executable whose name is given in cmd_line, passing any
   executable. You must use appropriate synchronization to ensure 
   this.
 */
-pid_t sys_exec(const char* cmd_line) {
-  return NULL;
+// pid_t sys_exec(const char* cmd_line) {
+int sys_exec(const char* cmd_line) {
+  return (int)cmd_line;
 }
 
 
@@ -353,8 +359,9 @@ wait must fail and return -1 immediately if any of the
     3) If pid did not call exit but was terminated by the kernel 
       (e.g. killed due to an exception), wait must return -1. 
 */
-int sys_wait(pid_t pid) {
-  return -1;
+// int sys_wait(pid_t pid) {
+int sys_wait(int pid) {
+  return -1 + pid - pid;
 }
 
 

@@ -18,7 +18,8 @@ void sys_close(int fd);
 int sys_practice(int i);
 void sys_halt(void);
 void sys_exit(int status);
-pid_t sys_exec(const char* cmd_line);
-int sys_wait(pid_t pid);
-
+// pid_t sys_exec(const char* cmd_line);
+// int sys_wait(pid_t pid);
+int sys_exec(const char* cmd_line);
+int sys_wait(int pid);
 #endif /* userprog/syscall.h */
