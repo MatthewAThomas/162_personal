@@ -34,9 +34,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
-  } else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
-    f->eax = sys_practice(args[1]);
-  }
+  } 
+  // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
+  //   f->eax = sys_practice(args[1]);
+  // }
   
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {

@@ -82,16 +82,18 @@ static void start_process(void* file_name_) {
   char* file_name = (char*)file_name_;
   struct thread* t = thread_current();
   struct intr_frame if_;
-  bool success, pcb_success, fd_table_success;
+  bool success, pcb_success;
+  //bool fd_table_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
   // Allocates file descriptor table on the heap to avoid stack overflow
-  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
-  pcb_success = new_pcb != NULL;
-  fd_table_success = new_fd_table != NULL;
-  success = pcb_success && fd_table_success;
-
+  // struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  // pcb_success = new_pcb != NULL;
+  // fd_table_success = new_fd_table != NULL;
+  //success = pcb_success && fd_table_success;
+  success = pcb_success = new_pcb != NULL;
+  
   /* Initialize process control block */
   if (success) {
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
@@ -100,10 +102,10 @@ static void start_process(void* file_name_) {
     t->pcb = new_pcb;
 
     // Initialize fd_table
-    init_table(new_fd_table);
+    //init_table(new_fd_table);
     
     // Set new_fd_table as the fd_table of new_pcb
-    new_pcb -> fd_table = new_fd_table;
+    //new_pcb -> fd_table = new_fd_table;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -183,24 +185,27 @@ static void start_process(void* file_name_) {
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
     if_.esp = if_.esp - sizeof(char*);
-    //memcpy(if_.esp, argv_addr[argc-i-1], sizeof(char*));
-    *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+    //*(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
   }
 
   // stack argv
+  //char *ptr = *if_.esp;
   if_.esp = if_.esp - sizeof(char*);
-  //memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
-  *(char**)if_.esp = *(char**)(if_.esp + 4);
+  char *prev = (char *)(if_.esp + (uint32_t)4);
+  memcpy(if_.esp, &prev, sizeof(char*)); // memcpy?
+  //*(char**)if_.esp = *(char**)(if_.esp + 4);
   
   // stack argc
   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
-  //memset(if_.esp, argc, sizeof(int));
+  memset(if_.esp, argc, sizeof(int));
   *(int *)if_.esp = argc;
 
   // stack fake address
   if_.esp = if_.esp - sizeof(void*);
-  // memset(if_.esp, 0, sizeof(void*));
-  *(void**)if_.esp = NULL;
+  memset(if_.esp, '\0', sizeof(void*));
+
+
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
   // if (!success && fd_table_success) {
