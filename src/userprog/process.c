@@ -184,8 +184,8 @@ static void start_process(void* file_name_) {
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
     if_.esp = if_.esp - sizeof(char*);
-    memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
-    //*(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+    *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
   }
 
   // stack argv
