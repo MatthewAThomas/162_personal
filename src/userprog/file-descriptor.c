@@ -9,6 +9,7 @@
 #include <list.h>
 #include "userprog/file-descriptor.h"
 #include "filesys/file.h"
+#include "threads/malloc.h"
 
 // Todo: test / review the functions in this file
 
@@ -29,15 +30,6 @@ struct fd* find(struct fd_table* fd_table, int fd) {
     return NULL;
 }
 
-    //   struct list_elem *e;
-
-    //   for (e = list_begin (&foo_list); e != list_end (&foo_list);
-    //        e = list_next (e))
-    //     {
-    //       struct foo *f = list_entry (e, struct foo, elem);
-    //       ...do something with f...
-    //     }
-
 
 /*
     Removes the given FD from the FD table and returns the associated FD. Returns NULL if it does not exist. 
@@ -55,6 +47,7 @@ struct fd* pop(struct fd_table* fd_table, int fd) {
 int remove(struct fd_table* fd_table, int fd) {
     // -1 on failure, 0 on success
     struct fd* file_desc = find(fd_table, fd);
+    // free 
     if (list_remove(&(file_desc->list_fd)) == NULL) {
         return -1;
     }
@@ -65,21 +58,22 @@ int remove(struct fd_table* fd_table, int fd) {
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd file_descriptor; 
+    struct fd* file_descriptor = (struct fd*)malloc(sizeof(struct fd)); 
     //memset(file_descriptor, 0, sizeof *file_descriptor); // todo: check if this initializes e correctly
     
-    struct list_elem e;
+    struct list_elem* e = (struct list_elem*)malloc(sizeof(struct list_elem));
+    
     //memset(&e, 0, sizeof *(&e)); // todo: check if this initializes e correctly
-    e.prev = NULL; // todo: check if this is correct
-    e.next = NULL; // todo: check if this is correct for initializing e
-    file_descriptor.list_fd = e;
-    file_descriptor.val = fd_table->next_unused_fd;
-    file_descriptor.file = file;
+    e->prev = NULL; // todo: check if this is correct
+    e->next = NULL; // todo: check if this is correct for initializing e
+    file_descriptor->list_fd = e;
+    file_descriptor->val = fd_table->next_unused_fd;
+    file_descriptor->file = file;
 
     fd_table->next_unused_fd += 1;
-    file_descriptor.list_fd = e;
+    file_descriptor->list_fd = e;
     list_push_back(&fd_table->fds, &e);
-    return &file_descriptor;
+    return file_descriptor;
 }
 
 /* 
@@ -98,7 +92,6 @@ void init_table(struct fd_table *fd_table) {
     list_init(&fds);
     fd_table->fds = fds;
     fd_table->next_unused_fd = 2;
-
     // struct list *fds = malloc(sizeof(struct list));
     // list_init(fds);
     // fd_table->fds = fds;
