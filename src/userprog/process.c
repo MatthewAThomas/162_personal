@@ -26,6 +26,7 @@ static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
+struct shared_data* find_shared_data(struct process* pcb, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -70,21 +71,27 @@ pid_t process_execute(const char* file_name) {
   token = strtok_r(file_name, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
+  
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
+  else {
+    // tid is the child process pid
+    // need to find child's shared_data
+    struct shared_data* child_shared_data = find_shared_data(tid);
+    sema_down(&(child_shared_data -> child_load_sema));
+  }
+  
   return tid;
-}
-
-void init_shared_data(struct shared_data* shared_data) {
-  shared_data->child_load_success = false;
-  sema_init(&(shared_data->child_load_sema), 0); 
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void start_process(void* file_name_) {
   char* file_name = (char*)file_name_;
-  struct thread* t = thread_current();
+
+  // dumplist &all_list shared_data elem
+  // dumplist &all_list thread allelem
+  struct thread* t = thread_current(); // use tid as pid
   struct intr_frame if_;
   bool success, pcb_success;
   bool fd_table_success;
@@ -114,7 +121,10 @@ static void start_process(void* file_name_) {
 
     // Initialize shared_data;
     init_shared_data(new_shared_data);
+
+    // Initialize shared_data_list
     
+  
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
 
@@ -154,7 +164,9 @@ static void start_process(void* file_name_) {
     if_.eflags = FLAG_IF | FLAG_MBS;
     //success = load(file_name, &if_.eip, &if_.esp);
     success = load(argv[0], &if_.eip, &if_.esp);
-    //thread_current()->
+    
+    /* After load, let the parent process know that it can stop blocking */
+    sema_up(&(thread_current() -> pcb -> shared_data -> child_load_sema));
   }
 
   
@@ -627,6 +639,28 @@ static bool install_page(void* upage, void* kpage, bool writable) {
      address, then map our page there. */
   return (pagedir_get_page(t->pcb->pagedir, upage) == NULL &&
           pagedir_set_page(t->pcb->pagedir, upage, kpage, writable));
+}
+
+/* Returns shared_data struct of process struct with <pid> */
+// struct shared_data* find_shared_data(struct process* pcb, int pid) {
+//   //only current process will be passed?
+//   //struct fd* file_desc;
+//   struct list_elem* e;
+//   for (e = list_begin(pcb->shared_data); e != list_end(pcb->shared_data); e = list_next(e)) {
+//       shared_data* file_desc = list_entry(e, struct shared_data, list_fd);
+//       if (file_desc != NULL && file_desc->val == fd) {
+//           return &file_desc;
+//       }
+//   } 
+//   return NULL;
+// }
+
+void init_shared_data(struct shared_data* shared_data) {
+  shared_data->pid = get_pid(thread_current());
+  shared_data->child_load_success = false;
+  shared_data->ref_count = 0;
+  shared_data->exit_status = 0; // not sure if it should be -1 or 0
+  sema_init(&(shared_data->child_load_sema), 0);  
 }
 
 /* Returns true if t is the main thread of the process p */

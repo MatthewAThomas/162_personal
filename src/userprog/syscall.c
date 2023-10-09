@@ -30,11 +30,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
    */
 
   /* printf("System call number: %d\n", args[0]); */
-  /* Check to see if stack pointer is outside of user memory. If so, exit*/
-  if (!is_user_vaddr(f->esp) || (f->esp < 0)) {
-    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
-    process_exit();
+  /* Check to see if ptr is outside of user memory. If so, exit*/
+  void check_valid_ptr(void *ptr) {
+    if (!is_user_vaddr(ptr) || (ptr < 0)) {
+      printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+      process_exit();
+    }
   }
+
+  check_valid_ptr(f->esp);
 
   /* Syscalls can take a maximum of 4 arguments, each of size 4 bytes (lib/usr/syscall.c)
      To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
@@ -96,12 +100,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
   else if (args[0] == SYS_EXEC) {
     // printf("System call number: %d\n", args[0]);
+    // char *cmd_line = args[1];
+    // pid_t pid = process_execute(cmd_line);
+    // f->eax = pid;
+    // // block until load is complete
+    // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+    // return;
+    // need sanitizing :)
     char *cmd_line = args[1];
-    pid_t pid = process_execute(cmd_line);
-    f->eax = pid;
-    // block until load is complete
-    sema_down(&thread_current()->pcb->shared_data->child_load_sema);
-    return;
+    f -> eax = sys_exec(cmd_line);
   }
   else if (args[0] == SYS_WAIT) {
       // printf("System call number: %d\n", args[0]);
@@ -118,7 +125,8 @@ Creating a new file does not open it: opening the new file is
   a separate operation which would require an open system call.
 */
 // bool sys_create(const char* file, unsigned initial_size) {
-//   return filesys_create(file, (off_t)initial_size);
+//     check_valid_ptr((void *) file);
+//     return filesys_create(file, (off_t)initial_size);
 // }
 
 
@@ -129,6 +137,7 @@ A file may be removed regardless of whether it is open or closed,
   and removing an open file does not close it. 
 */
 // bool sys_remove(const char* file) {
+//   check_valid_ptr((void *) file);  
 //   return filesys_remove(file);
 // }
 
@@ -152,6 +161,7 @@ When a single file is opened more than once, whether
   close and they do not share a file position.
 */
 // int sys_open(const char* file) {
+//   check_valid_ptr((void *) file);
 //   return -1;
 //   struct fd_table* fd_table = thread_current()->pcb->fd_table;
 // }
@@ -176,6 +186,7 @@ the file descriptor table). STDIN_FILENO reads from the keyboard
 using the input_getc function in devices/input.c.
 */
 // int sys_ead(int fd, void* buffer, unsigned size) {
+//   check_valid_ptr(buffer);  
 //   return -1;
 //   struct fd_table* fd_table = thread_current()->pcb->fd_table;
 // }
@@ -199,6 +210,7 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   // return error
   // write to a file using write_file in "filesys/file.h"
   // return the number of bytes actually written (which is returned from write_file) 
+  check_valid_ptr(buffer);
   if(fd == 1) { // stdout case
     putbuf((const char*) buffer, (size_t) size);  
   } 
@@ -323,9 +335,15 @@ Runs the executable whose name is given in cmd_line, passing any
   executable. You must use appropriate synchronization to ensure 
   this.
 */
-// pid_t sys_exec(const char* cmd_line) {
-//   return NULL;
-// }
+pid_t sys_exec(const char* cmd_line) {
+  check_valid_ptr((void *) cmd_line);
+
+  pid_t pid = process_execute(cmd_line);
+  // block until load is complete
+  // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+
+  return pid;
+}
 
 
 
