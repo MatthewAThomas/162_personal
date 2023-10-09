@@ -19,6 +19,14 @@ static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
 
+  /* printf("System call number: %d\n", args[0]); */
+  /* Check to see if ptr is outside of user memory. If so, exit*/
+static void check_valid_ptr(void *ptr) {
+  if (!is_user_vaddr(ptr) || (ptr < 0)) {
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+    process_exit();
+  }
+}
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
@@ -29,14 +37,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
    * include it in your final submission.
    */
 
-  /* printf("System call number: %d\n", args[0]); */
-  /* Check to see if ptr is outside of user memory. If so, exit*/
-  void check_valid_ptr(void *ptr) {
-    if (!is_user_vaddr(ptr) || (ptr < 0)) {
-      printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
-      process_exit();
-    }
-  }
 
   check_valid_ptr(f->esp);
 
@@ -341,6 +341,9 @@ pid_t sys_exec(const char* cmd_line) {
   pid_t pid = process_execute(cmd_line);
   // block until load is complete
   // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+  
+  /* Add the child process's shared_data to list of parent process's children processes */
+  add_child(pid);
 
   return pid;
 }

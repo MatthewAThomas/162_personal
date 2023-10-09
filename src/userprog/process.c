@@ -77,8 +77,8 @@ pid_t process_execute(const char* file_name) {
   else {
     // tid is the child process pid
     // need to find child's shared_data
-    struct shared_data* child_shared_data = find_shared_data(tid);
-    sema_down(&(child_shared_data -> child_load_sema));
+    // struct shared_data* child_shared_data = find_shared_data(tid);
+    // sema_down(&(child_shared_data -> child_load_sema));
   }
   
   return tid;
@@ -166,7 +166,7 @@ static void start_process(void* file_name_) {
     success = load(argv[0], &if_.eip, &if_.esp);
     
     /* After load, let the parent process know that it can stop blocking */
-    sema_up(&(thread_current() -> pcb -> shared_data -> child_load_sema));
+    sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
   }
 
   
@@ -656,11 +656,34 @@ static bool install_page(void* upage, void* kpage, bool writable) {
 // }
 
 void init_shared_data(struct shared_data* shared_data) {
-  shared_data->pid = get_pid(thread_current());
-  shared_data->child_load_success = false;
+  shared_data->pid = thread_current()->tid;
+  shared_data->load = false;
   shared_data->ref_count = 0;
-  shared_data->exit_status = 0; // not sure if it should be -1 or 0
-  sema_init(&(shared_data->child_load_sema), 0);  
+  shared_data->exit_code = 0; // not sure if it should be -1 or 0
+  sema_init(&(shared_data->load_sema), 0);  
+}
+
+/* Takes a pid and finds the corresponding process struct */
+struct process *find_process(int pid) {
+  struct list_elem* e;
+  struct list *all_list_ptr = get_all_list();
+  for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
+    struct thread* t = list_entry(e, struct thread, allelem);
+    struct process *pcb = t -> pcb;
+    if ((pcb -> shared_data -> pid) == pid) return pcb;
+  }
+  return NULL;
+}
+
+/* Adds child process to struct list children of parent process*/
+void add_child(int child_pid) {
+  struct process *parent_pcb = thread_current() -> pcb;
+  struct process *child_pcb = find_process(child_pid);
+
+  struct list *children = &(parent_pcb -> children);
+  struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
+
+  list_push_back(children, child_elem);
 }
 
 /* Returns true if t is the main thread of the process p */
