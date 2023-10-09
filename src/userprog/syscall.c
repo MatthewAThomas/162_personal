@@ -23,8 +23,8 @@ void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "
 
   /* printf("System call number: %d\n", args[0]); */
   /* Check to see if ptr is outside of user memory. If so, exit*/
-static void check_valid_ptr(void *ptr) {
-  if (!is_user_vaddr(ptr) || (ptr < 0)) {
+void check_valid_ptr(void *ptr) {
+  if (!is_user_vaddr(ptr) || ptr == NULL || (uint32_t)ptr == 0) { // ptr < 0 gets compile error (int and pointer comparison)
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
     process_exit();
   }
@@ -47,7 +47,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
      To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
      the arguments to a syscall might reach into user memory*/
   int max_syscall_arg_size = 16; // 4 args, 4 bytes each
-  if (max_syscall_arg_size + (uint32_t) f->esp > PHYS_BASE) {
+  if (max_syscall_arg_size + (uint32_t) f->esp > (uint32_t)PHYS_BASE) {
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
     process_exit();
   }
@@ -85,7 +85,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[2] : buffer
       // args[2] : size unsigned
       //f->eax = sys_write(args[1], (const void*)args[2], args[3]);
-      f->eax = sys_write(args[1], args[2], args[3]);
+      f->eax = sys_write(args[1], (void*)args[2], args[3]);
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
   
@@ -110,7 +110,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
     // return;
     // need sanitizing :)
-    char *cmd_line = args[1];
+    char* cmd_line = (char*)args[1];
     f -> eax = sys_exec(cmd_line);
   }
   else if (args[0] == SYS_WAIT) {
@@ -163,8 +163,8 @@ When a single file is opened more than once, whether
   close and they do not share a file position.
 */
 
-int sys_open(const char* name) {
-  check_valid_ptr((void*) name);
+int sys_open(char* name) { // const
+  check_valid_ptr(name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct file* file = filesys_open(name);
   if (file == NULL) {
@@ -236,7 +236,7 @@ File descriptor 1 writes to the console.
   at least as long as size is not bigger than a few hundred bytes and 
   should break up larger buffers in the process.
 */
-int sys_write(int fd, const void* buffer, unsigned size) {
+int sys_write(int fd, void* buffer, unsigned size) {
   // return -1;
   // check if a file is open
   // return error
@@ -404,7 +404,7 @@ Runs the executable whose name is given in cmd_line, passing any
 // int sys_exec(const char* cmd_line) {
 //   return (int)cmd_line;
 // }
-pid_t sys_exec(const char* cmd_line) {
+pid_t sys_exec(char* cmd_line) { // const
   check_valid_ptr((void *) cmd_line);
 
   pid_t pid = process_execute(cmd_line);
