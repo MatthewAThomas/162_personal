@@ -27,7 +27,9 @@ static struct list fifo_ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
-
+// We can iterate to find the right shared data then add that pcb to shared_data_list
+// Hmm yeah thats what I thought too but I was not sure how we can do that.
+// so I was tyring to find where it is initialized. Basically trying to understand if it would be possible actually.
 /* Idle thread. */
 static struct thread* idle_thread;
 
@@ -325,6 +327,10 @@ void thread_foreach(thread_action_func* func, void* aux) {
     struct thread* t = list_entry(e, struct thread, allelem);
     func(t, aux);
   }
+}
+
+struct list *get_all_list(void) {
+  return &all_list;
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
