@@ -35,8 +35,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
+<<<<<<< HEAD
+  } else if (args[0] == ) { // TODO what is practice syscall number?
+    f->eax = ++(args[1]);
+  }
+  /*
+=======
   } 
   
+>>>>>>> b0d8cfc3e8d9f758d0eebc838401b0641da8fd73
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {
     // printf("System call number: %d\n", args[0]);
