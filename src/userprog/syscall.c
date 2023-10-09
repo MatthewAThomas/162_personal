@@ -7,16 +7,28 @@
 #include "file-descriptor.h"
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
+#include "threads/vaddr.h" 
 
 #include "filesys/filesys.h" // added here
 #include "devices/input.h"
-
-
+//Added 
+//#include "file-descriptor.h" 
+//#include "userprog/process.h"
+//#include "threads/vaddr.h"
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
 
 static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
+
+  /* printf("System call number: %d\n", args[0]); */
+  /* Check to see if ptr is outside of user memory. If so, exit*/
+static void check_valid_ptr(void *ptr) {
+  if (!is_user_vaddr(ptr) || (ptr < 0)) {
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+    process_exit();
+  }
+}
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
@@ -28,22 +40,28 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
    * include it in your final submission.
    */
 
-  /* printf("System call number: %d\n", args[0]); */
+
+  check_valid_ptr(f->esp);
+
+  /* Syscalls can take a maximum of 4 arguments, each of size 4 bytes (lib/usr/syscall.c)
+     To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
+     the arguments to a syscall might reach into user memory*/
+  int max_syscall_arg_size = 16; // 4 args, 4 bytes each
+  if (max_syscall_arg_size + (uint32_t) f->esp > PHYS_BASE) {
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+    process_exit();
+  }
 
 
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
-<<<<<<< HEAD
-  } else if (args[0] == ) { // TODO what is practice syscall number?
-    f->eax = ++(args[1]);
-  }
-  /*
-=======
   } 
+  // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
+  //   f->eax = sys_practice(args[1]);
+  // }
   
->>>>>>> b0d8cfc3e8d9f758d0eebc838401b0641da8fd73
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {
     // printf("System call number: %d\n", args[0]);
@@ -66,7 +84,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[1] : fd
       // args[2] : buffer
       // args[2] : size unsigned
-      f->eax = sys_write(args[1], (const void*)args[2], args[3]);
+      //f->eax = sys_write(args[1], (const void*)args[2], args[3]);
+      f->eax = sys_write(args[1], args[2], args[3]);
+      //putbuf((const char*) args[2], (size_t) args[3]);
   }
   
   // Start of process syscalls
@@ -82,7 +102,16 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // printf("System call number: %d\n", args[0]);
   }
   else if (args[0] == SYS_EXEC) {
-      // printf("System call number: %d\n", args[0]);
+    // printf("System call number: %d\n", args[0]);
+    // char *cmd_line = args[1];
+    // pid_t pid = process_execute(cmd_line);
+    // f->eax = pid;
+    // // block until load is complete
+    // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+    // return;
+    // need sanitizing :)
+    char *cmd_line = args[1];
+    f -> eax = sys_exec(cmd_line);
   }
   else if (args[0] == SYS_WAIT) {
       // printf("System call number: %d\n", args[0]);
@@ -97,9 +126,10 @@ Returns true if successful, false otherwise.
 Creating a new file does not open it: opening the new file is 
   a separate operation which would require an open system call.
 */
-bool sys_create(const char* file, unsigned initial_size) {
-  return filesys_create(file, (off_t)initial_size);
-}
+// bool sys_create(const char* file, unsigned initial_size) {
+//     check_valid_ptr((void *) file);
+//     return filesys_create(file, (off_t)initial_size);
+// }
 
 
 /*
@@ -108,9 +138,10 @@ Returns true if successful, false otherwise.
 A file may be removed regardless of whether it is open or closed, 
   and removing an open file does not close it. 
 */
-bool sys_remove(const char* file) {
-  return filesys_remove(file);
-}
+// bool sys_remove(const char* file) {
+//   check_valid_ptr((void *) file);  
+//   return filesys_remove(file);
+// }
 
 
 /*
@@ -131,7 +162,9 @@ When a single file is opened more than once, whether
   are closed independently in separate calls to 
   close and they do not share a file position.
 */
+
 int sys_open(const char* name) {
+  check_valid_ptr((void*) name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct file* file = filesys_open(name);
   if (file == NULL) {
@@ -165,6 +198,7 @@ using the input_getc function in devices/input.c.
 */
 int sys_read(int fd, void* buffer, unsigned size) {
   // reads from FD and puts bytes into buffer
+  check_valid_ptr(buffer);
   if (fd == 0) {
     uint8_t curr;
     uint8_t* buffer = buffer;
@@ -187,6 +221,7 @@ int sys_read(int fd, void* buffer, unsigned size) {
   }
   
 }
+
 
 /* 
 Writes size bytes from buffer to the open file with 
@@ -212,6 +247,7 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   //int fd = args[1];
   //const void *buffer = (const void*) args[2];
   //unsigned size = args[3];
+  check_valid_ptr(buffer);
   if(fd == 1) { // stdout case
     putbuf((const char*) buffer, (size_t) size);
     // for (int total = 0; size - total > 0; total += 100) {
@@ -251,6 +287,15 @@ int sys_write(int fd, const void* buffer, unsigned size) {
   }
 }
 
+//   if (can_write_to_file(file)) { // justice for matthew
+//     f->eax = -1;
+//     // need to exit kernel
+//     return;
+//   }
+//   int bytes_written = file_write(file, buffer, (off_t) size);
+//   f -> eax = bytes_written;
+// }
+
 
 /* 
 Changes the next byte to be read or written in open file fd to 
@@ -283,6 +328,7 @@ unsigned sys_tell(int fd) {
   }
   return (unsigned)file_tell(file_desc->file); // todo: need to check for int overflow w/ off_t cast to unsigned
 }
+
 
 
 /* 
@@ -320,9 +366,9 @@ Terminates Pintos by calling the shutdown_power_off
   because you lose some information about possible deadlock 
   situations, etc.
 */
-void sys_halt(void) {
-  return;
-}
+// void sys_halt(void) {
+//   return;
+// }
 
 
 /* 
@@ -355,9 +401,22 @@ Runs the executable whose name is given in cmd_line, passing any
   this.
 */
 // pid_t sys_exec(const char* cmd_line) {
-int sys_exec(const char* cmd_line) {
-  return (int)cmd_line;
+// int sys_exec(const char* cmd_line) {
+//   return (int)cmd_line;
+// }
+pid_t sys_exec(const char* cmd_line) {
+  check_valid_ptr((void *) cmd_line);
+
+  pid_t pid = process_execute(cmd_line);
+  // block until load is complete
+  // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+  
+  /* Add the child process's shared_data to list of parent process's children processes */
+  add_child(pid);
+
+  return pid;
 }
+
 
 
 /* 
@@ -384,7 +443,7 @@ int sys_wait(int pid) {
 }
 
 
-  // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor
+// refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor
 // synchronization is not assumed in this code thus it has to be wrapped by mutex or semaphore
 // int write_from_buffer(int fd, const *buffer, unsigned size) {
 //     // initialize buffer start

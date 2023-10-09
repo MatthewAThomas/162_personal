@@ -69,10 +69,9 @@ struct fd* add(struct fd_table* fd_table, struct file* file) {
     file_descriptor->list_fd = e;
     file_descriptor->val = fd_table->next_unused_fd;
     file_descriptor->file = file;
-
     fd_table->next_unused_fd += 1;
     file_descriptor->list_fd = e;
-    list_push_back(&fd_table->fds, &e);
+    list_push_back(&fd_table->fds, e);
     return file_descriptor;
 }
 

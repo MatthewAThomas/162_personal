@@ -28,8 +28,33 @@ struct process {
   uint32_t* pagedir;          /* Page directory. */
   char process_name[16];      /* Name of the main thread */
   struct thread* main_thread; /* Pointer to main thread */
+
   struct fd_table* fd_table; /* Pointer to the FD table. */
+
+  struct list children; /* Simon added lst */
+  struct semaphore list_sema;  
+  struct shared_data* shared_data;
 };
+
+// parent process list - visibilty to sharea data's of its own child
+// as a process itself - will have a pointer to its own shared data
+
+ // shared data will be access by its own process and parent process using children list
+struct shared_data {
+  bool load; /* Indicate child process is successfully loaded*/
+  struct semaphore load_sema; /* Signal loading is completed whether it succeed or failed*/
+  pid_t pid; /* my pid */
+  struct list_elem elem; /* make it iterable*/
+  int ref_count; /* set it free only when it is 0 i.e. no lost child!*/
+  int exit_code; /*meta data to hold exit status even after process/thread is gone*/
+};
+
+/* project 1 process helper*/
+void init_shared_data(struct shared_data* shared_data);
+/* end of helper*/
+
+/* Find the shared data struct of a (child) process */
+struct shared_data* find_shared_data(struct process* pcb, int pid);
 
 void userprog_init(void);
 

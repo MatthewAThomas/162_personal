@@ -26,6 +26,7 @@ static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
+struct shared_data* find_shared_data(struct process* pcb, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -70,28 +71,44 @@ pid_t process_execute(const char* file_name) {
   token = strtok_r(file_name, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
+  
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
+  else {
+    // tid is the child process pid
+    // need to find child's shared_data
+    // struct shared_data* child_shared_data = find_shared_data(tid);
+    // sema_down(&(child_shared_data -> child_load_sema));
+  }
+  
   return tid;
 }
-
 
 /* A thread function that loads a user process and starts it
    running. */
 static void start_process(void* file_name_) {
   char* file_name = (char*)file_name_;
-  struct thread* t = thread_current();
+
+  // dumplist &all_list shared_data elem
+  // dumplist &all_list thread allelem
+  struct thread* t = thread_current(); // use tid as pid
   struct intr_frame if_;
-  bool success, pcb_success, fd_table_success;
+  bool success, pcb_success;
+  bool fd_table_success;
+  bool shared_data_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
-  // Allocates file descriptor table on the heap to avoid stack overflow
+  //Allocates file descriptor table on the heap to avoid stack overflow
   struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
+
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
-  success = pcb_success && fd_table_success;
+  shared_data_success = new_shared_data != NULL;
 
+  success = pcb_success && fd_table_success && shared_data_success;
+ 
   /* Initialize process control block */
   if (success) {
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
@@ -101,9 +118,18 @@ static void start_process(void* file_name_) {
 
     // Initialize fd_table
     init_table(new_fd_table);
+
+    // Initialize shared_data;
+    init_shared_data(new_shared_data);
+
+    // Initialize shared_data_list
     
+  
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
+
+    // Set new_shared_data as the shared_data of new_pcb
+    new_pcb -> shared_data = new_shared_data;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -138,7 +164,12 @@ static void start_process(void* file_name_) {
     if_.eflags = FLAG_IF | FLAG_MBS;
     //success = load(file_name, &if_.eip, &if_.esp);
     success = load(argv[0], &if_.eip, &if_.esp);
+    
+    /* After load, let the parent process know that it can stop blocking */
+    sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
   }
+
+  
 
 
   // Tokenize(get each word) and store a pointer on stack and save the same pointer in argv array for later below
@@ -183,20 +214,27 @@ static void start_process(void* file_name_) {
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
     if_.esp = if_.esp - sizeof(char*);
-    memcpy(if_.esp, argv_addr[argc-i-1], sizeof(char*));
+    //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+    *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
   }
 
   // stack argv
+  //char *ptr = *if_.esp;
   if_.esp = if_.esp - sizeof(char*);
-  memset(if_.esp, if_.esp+4, sizeof(char*)); // memcpy?
-
+  char *prev = (char *)(if_.esp + (uint32_t)4);
+  memcpy(if_.esp, &prev, sizeof(char*)); // memcpy?
+  //*(char**)if_.esp = *(char**)(if_.esp + 4);
+  
   // stack argc
   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
   memset(if_.esp, argc, sizeof(int));
+  *(int *)if_.esp = argc;
 
   // stack fake address
   if_.esp = if_.esp - sizeof(void*);
-  memset(if_.esp, 0, sizeof(void*));
+  memset(if_.esp, '\0', sizeof(void*));
+
+
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
   if (!success && fd_table_success) {
@@ -601,6 +639,51 @@ static bool install_page(void* upage, void* kpage, bool writable) {
      address, then map our page there. */
   return (pagedir_get_page(t->pcb->pagedir, upage) == NULL &&
           pagedir_set_page(t->pcb->pagedir, upage, kpage, writable));
+}
+
+/* Returns shared_data struct of process struct with <pid> */
+// struct shared_data* find_shared_data(struct process* pcb, int pid) {
+//   //only current process will be passed?
+//   //struct fd* file_desc;
+//   struct list_elem* e;
+//   for (e = list_begin(pcb->shared_data); e != list_end(pcb->shared_data); e = list_next(e)) {
+//       shared_data* file_desc = list_entry(e, struct shared_data, list_fd);
+//       if (file_desc != NULL && file_desc->val == fd) {
+//           return &file_desc;
+//       }
+//   } 
+//   return NULL;
+// }
+
+void init_shared_data(struct shared_data* shared_data) {
+  shared_data->pid = thread_current()->tid;
+  shared_data->load = false;
+  shared_data->ref_count = 0;
+  shared_data->exit_code = 0; // not sure if it should be -1 or 0
+  sema_init(&(shared_data->load_sema), 0);  
+}
+
+/* Takes a pid and finds the corresponding process struct */
+struct process *find_process(int pid) {
+  struct list_elem* e;
+  struct list *all_list_ptr = get_all_list();
+  for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
+    struct thread* t = list_entry(e, struct thread, allelem);
+    struct process *pcb = t -> pcb;
+    if ((pcb -> shared_data -> pid) == pid) return pcb;
+  }
+  return NULL;
+}
+
+/* Adds child process to struct list children of parent process*/
+void add_child(int child_pid) {
+  struct process *parent_pcb = thread_current() -> pcb;
+  struct process *child_pcb = find_process(child_pid);
+
+  struct list *children = &(parent_pcb -> children);
+  struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
+
+  list_push_back(children, child_elem);
 }
 
 /* Returns true if t is the main thread of the process p */
