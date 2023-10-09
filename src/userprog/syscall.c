@@ -7,10 +7,12 @@
 #include "file-descriptor.h"
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
+#include "threads/vaddr.h" 
 
 //Added 
 //#include "file-descriptor.h" 
 //#include "userprog/process.h"
+//#include "threads/vaddr.h"
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
 
 static void syscall_handler(struct intr_frame*);
@@ -28,6 +30,20 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
    */
 
   /* printf("System call number: %d\n", args[0]); */
+  /* Check to see if stack pointer is outside of user memory. If so, exit*/
+  if (!is_user_vaddr(f->esp) || (f->esp < 0)) {
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+    process_exit();
+  }
+
+  /* Syscalls can take a maximum of 4 arguments, each of size 4 bytes (lib/usr/syscall.c)
+     To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
+     the arguments to a syscall might reach into user memory*/
+  int max_syscall_arg_size = 16; // 4 args, 4 bytes each
+  if (max_syscall_arg_size + (uint32_t) f->esp > PHYS_BASE) {
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+    process_exit();
+  }
 
 
   if (args[0] == SYS_EXIT) {
@@ -61,11 +77,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // args[1] : fd
     // args[2] : buffer
     // args[2] : size unsigne
-    putbuf((const char*) args[2], (size_t) args[3]);
-    f->eax = args[3];
+    f -> eax = sys_write(args[1], args[2], args[3]); 
+    //putbuf((const char*) args[2], (size_t) args[3]);
+    //f->eax = args[3];
     return;
   } else if (args[0] == SYS_PRACTICE) {// Start of process syscalls
-    // printf("System call number: %d\n", args[0]);
+    
+    // check args
+
     f->eax = sys_practice(args[1]);
     return;
   }
@@ -76,7 +95,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // printf("System call number: %d\n", args[0]);
   }
   else if (args[0] == SYS_EXEC) {
-      // printf("System call number: %d\n", args[0]);
+    // printf("System call number: %d\n", args[0]);
+    char *cmd_line = args[1];
+    pid_t pid = process_execute(cmd_line);
+    f->eax = pid;
+    // block until load is complete
+    sema_down(&thread_current()->pcb->shared_data->child_load_sema);
+    return;
   }
   else if (args[0] == SYS_WAIT) {
       // printf("System call number: %d\n", args[0]);
@@ -168,37 +193,37 @@ File descriptor 1 writes to the console.
   at least as long as size is not bigger than a few hundred bytes and 
   should break up larger buffers in the process.
 */
-// int sys_write(int fd, const void* buffer, unsigned size) {
-//   // return -1;
-//   // check if a file is open
-//   // return error
-//   // write to a file using write_file in "filesys/file.h"
-//   // return the number of bytes actually written (which is returned from write_file) 
-//   if(fd == 1) { // stdout case
-//     putbuf((const char*) buffer, (size_t) size);  
-//   } 
-//   else { 
-//     // get file and fd_table. You can find it in process.h and file.h
-//     struct fd_table *fd_table = thread_current()->pcb->fd_table;
-//     struct file *file = get_file_pointer(fd_table, fd);
+int sys_write(int fd, const void* buffer, unsigned size) {
+  // return -1;
+  // check if a file is open
+  // return error
+  // write to a file using write_file in "filesys/file.h"
+  // return the number of bytes actually written (which is returned from write_file) 
+  if(fd == 1) { // stdout case
+    putbuf((const char*) buffer, (size_t) size);  
+  } 
+  else { 
+    // get file and fd_table. You can find it in process.h and file.h
+    struct fd_table *fd_table = thread_current()->pcb->fd_table;
+    struct file *file = get_file_pointer(fd_table, fd);
 
-//     // check if file is open (maybe function in file-descriptor.c) return -1 if not
-//     if (find(fd_table, fd) == NULL) {
-//       // need to exit kernel
-//       return -1;
-//     }
+    // check if file is open (maybe function in file-descriptor.c) return -1 if not
+    if (find(fd_table, fd) == NULL) {
+      // need to exit kernel
+      return -1;
+    }
 
-//     if (can_write_to_file(file)) { // justice for matthew
-//       //f->eax = -1;
-//       // need to exit kernel
-//       return -1;
-//     }
-//     int bytes_written = file_write(file, buffer, (off_t) size);
-//     //f -> eax = bytes_written;
-//     return bytes_written;
+    if (can_write_to_file(file)) { // justice for matthew
+      //f->eax = -1;
+      // need to exit kernel
+      return -1;
+    }
+    int bytes_written = file_write(file, buffer, (off_t) size);
+    //f -> eax = bytes_written;
+    return bytes_written;
     
-//   }
-// }
+  }
+}
 
 //   if (can_write_to_file(file)) { // justice for matthew
 //     f->eax = -1;
@@ -207,7 +232,6 @@ File descriptor 1 writes to the console.
 //   }
 //   int bytes_written = file_write(file, buffer, (off_t) size);
 //   f -> eax = bytes_written;
-//   }
 // }
 
 

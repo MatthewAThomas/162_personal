@@ -75,6 +75,10 @@ pid_t process_execute(const char* file_name) {
   return tid;
 }
 
+void init_shared_data(struct shared_data* shared_data) {
+  shared_data->child_load_success = false;
+  sema_init(&(shared_data->child_load_sema), 0); 
+}
 
 /* A thread function that loads a user process and starts it
    running. */
@@ -84,14 +88,19 @@ static void start_process(void* file_name_) {
   struct intr_frame if_;
   bool success, pcb_success;
   bool fd_table_success;
+  bool shared_data_success;
 
   /* Allocate process control block */
   struct process* new_pcb = malloc(sizeof(struct process));
   //Allocates file descriptor table on the heap to avoid stack overflow
   struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
+
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
-  success = pcb_success && fd_table_success;
+  shared_data_success = new_shared_data != NULL;
+
+  success = pcb_success && fd_table_success && shared_data_success;
  
   /* Initialize process control block */
   if (success) {
@@ -102,9 +111,15 @@ static void start_process(void* file_name_) {
 
     // Initialize fd_table
     init_table(new_fd_table);
+
+    // Initialize shared_data;
+    init_shared_data(new_shared_data);
     
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
+
+    // Set new_shared_data as the shared_data of new_pcb
+    new_pcb -> shared_data = new_shared_data;
 
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
@@ -139,7 +154,10 @@ static void start_process(void* file_name_) {
     if_.eflags = FLAG_IF | FLAG_MBS;
     //success = load(file_name, &if_.eip, &if_.esp);
     success = load(argv[0], &if_.eip, &if_.esp);
+    //thread_current()->
   }
+
+  
 
 
   // Tokenize(get each word) and store a pointer on stack and save the same pointer in argv array for later below

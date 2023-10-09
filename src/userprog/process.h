@@ -29,7 +29,18 @@ struct process {
   char process_name[16];      /* Name of the main thread */
   struct thread* main_thread; /* Pointer to main thread */
   struct fd_table* fd_table; /* Pointer to the FD table. */
+
+  struct shared_data* shared_data;
 };
+
+struct shared_data {
+  bool child_load_success; /* Indicate child process is successfully loaded*/
+  struct semaphore child_load_sema; /* Signal loading is completed whether it succeed or failed*/
+};
+
+/* project 1 process helper*/
+void init_shared_data(struct shared_data* shared_data);
+/* end of helper*/
 
 void userprog_init(void);
 
