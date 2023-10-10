@@ -40,12 +40,18 @@ int remove(struct fd_table* fd_table, int fd) {
     if (file_desc == NULL) {
         return -1;
     }
-    struct list_elem* e = &(file_desc->list_fd);
-    list_remove(e);
-    // free 
-    free(e);
-    free(file_desc);
-    return 0;    
+    return 0;
+
+    // if (file_desc == NULL) {
+    //      return -1;
+    //  }
+    // struct list_elem* e = &(file_desc->list_fd);
+    // list_remove(e);
+    // // free 
+    // free(e);
+    // free(file_desc);
+
+
 }
 
 /*
@@ -80,28 +86,32 @@ struct file* get_file_pointer(struct fd_table *fd_table, int fd) {
     Initializes FD table.
 */    
 void init_table(struct fd_table *fd_table) {
-    struct list *fds = malloc(sizeof(struct list));
-    list_init(fds);
-    fd_table->fds = *fds;
+    struct list fds;
+    // struct list *fds = malloc(sizeof(struct list));
+    // list_init(fds);
+    // fd_table->fds = *fds;
+    list_init(&fds);
+    fd_table->fds = fds;
     fd_table->next_unused_fd = 2;
     // list_init(fds);
     // fd_table->fds = fds;
     // fd_table->next_unused_fd = 2;
 }
 
-void free_table(struct fd_table *fd_table) {
-    struct list_elem* curr;
-    struct list_elem* next;
-    struct list_elem* last = list_tail(&fd_table->fds);
-    for (curr = list_begin(&fd_table->fds), next = curr; !list_empty(&fd_table->fds); curr = next) {
-        if(curr != last) {
-            next = list_next(curr);
-        }
-        struct fd* file_desc = list_entry(curr, struct fd, list_fd);
-        if (file_desc != NULL) {
-            free(file_desc);
-        }
-    } 
-    free(&(fd_table->fds));
-    free(fd_table);
-}
+// void free_table(struct fd_table *fd_table) {
+//     struct list_elem* curr;
+//     struct list_elem* next;
+//     struct list_elem* last = list_tail(&fd_table->fds);
+//     for (curr = list_begin(&fd_table->fds), next = curr; !list_empty(&fd_table->fds); curr = next) {
+//         if(curr != last) {
+//             next = list_next(curr);
+//         }
+//         struct fd* file_desc = list_entry(curr, struct fd, list_fd);
+//         if (file_desc != NULL) {
+//             free(file_desc);
+//         }
+//     } 
+//     free(&(fd_table->fds));
+//     free(fd_table);
+// }
+

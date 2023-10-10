@@ -9,12 +9,10 @@
 #include "lib/kernel/console.h"
 #include "threads/vaddr.h" 
 
-#include <stdlib.h>
 #include "filesys/filesys.h" // added here
 #include "devices/input.h"
-#include "lib/utils.h"
+#include <stdlib.h>
 #include "threads/pte.h"
-#include "lib/stdint.h"
 #include "userprog/pagedir.h" // needed for pointer verification to unmapped things
 #include "threads/malloc.h"
 //Added 
@@ -27,9 +25,13 @@ static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
 
- /* printf("System call number: %d\n", args[0]); */
-/* Check to see if ptr is outside of user memory. If so, exit*/
+  /* printf("System call number: %d\n", args[0]); */
+  /* Check to see if ptr is outside of user memory. If so, exit*/
 void check_valid_ptr(void *ptr) {
+  // if (!is_user_vaddr(ptr) || ptr == NULL || (uint32_t)ptr == 0) { // ptr < 0 gets compile error (int and pointer comparison)
+  //   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+  //   process_exit();
+  // }
   struct thread* cur = thread_current();
   if (ptr == NULL || (uint32_t)ptr == 0 || is_kernel_vaddr(ptr)) { // || (uint32_t)ptr >= 64*1024*1024
     // ptr < 0 gets compile error (int and pointer comparison)
@@ -40,7 +42,7 @@ void check_valid_ptr(void *ptr) {
   if (pagedir_get_page(pd, ptr) == NULL) { // is unmapped in current directory
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
-  }
+   }
   // check if on boundary with pde_get_pt(uint32_t pde)
   // pg_no(const void* va)
   // if (pg_no(ptr) != pg_round_up(ptr)) {
@@ -70,20 +72,18 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
     process_exit();
   }
-  //
 
 
   if (args[0] == SYS_EXIT) {
-    // f->eax = args[1];
-    int c = args[1];
-    f->eax = c;
-    // added
-    //struct fd_table* fd_table = thread_current()->pcb->fd_table;
-    // free all 
-    // free_table(fd_table);
-    // actually need to call process exit on all pcb
-    printf("%s: exit(%d)", thread_current()->pcb->process_name, args[1]);
+    f->eax = args[1];
+    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
+
+    // added^M
+    //struct fd_table* fd_table = thread_current()->pcb->fd_table;^M
+    // free all ^M
+    // free_table(fd_table);^M
+    // actually need to call process exit on all pcb^M
   } 
   // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
   //   f->eax = sys_practice(args[1]);
@@ -118,29 +118,37 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[2] : size unsigned
       //f->eax = sys_write(args[1], (const void*)args[2], args[3]);
       f->eax = sys_write(args[1], (void*)args[2], args[3]);
+      // todo: add exit if f->eax = -1; (or exit from output of sys_write)
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
+
   else if (args[0] == SYS_SEEK) {
     // printf("System call number: %d\n", args[0]);
     sys_seek(args[1], args[2]);
   }
   else if (args[0] == SYS_TELL) {
-    // printf("System call number: %d\n", args[0]);
+    // printf("System call number: %d\n", args[0]);^
     f->eax = sys_tell(args[1]);
   }
   else if (args[0] == SYS_CLOSE) {
     // printf("System call number: %d\n", args[0]);
-    sys_close(args[1]);
+    sys_close(args[1]);  
   }
 
+
+
+  
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
       f->eax = sys_practice(args[1]);
+      return;
   }
   else if (args[0] == SYS_HALT) {
-    // printf("System call number: %d\n", args[0]);
-
+      // printf("System call number: %d\n", args[0]);
+  }
+  else if (args[0] == SYS_EXIT) {
+      // printf("System call number: %d\n", args[0]);
   }
   else if (args[0] == SYS_EXEC) {
     // printf("System call number: %d\n", args[0]);
@@ -151,16 +159,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
     // return;
     // need sanitizing :)
-
-    char *cmd_line = (char*)args[1];
+    char* cmd_line = (char*)args[1];
     f -> eax = sys_exec(cmd_line);
-    return;
   }
   else if (args[0] == SYS_WAIT) {
-    // printf("System call number: %d\n", args[0]);
-    // int pid = args[1];
-    // f -> eax = sys_wait(pid);
-    // return;
+      // printf("System call number: %d\n", args[0]);
   }
   return;
 }
@@ -173,8 +176,8 @@ Creating a new file does not open it: opening the new file is
   a separate operation which would require an open system call.
 */
 bool sys_create(char* file, unsigned initial_size) {
-  check_valid_ptr((void *) file);
-  return filesys_create(file, (off_t)initial_size);
+    check_valid_ptr((void *) file);
+    return filesys_create(file, (off_t)initial_size);
 }
 
 
@@ -210,7 +213,7 @@ When a single file is opened more than once, whether
 */
 
 int sys_open(char* name) { // const
-  check_valid_ptr((void*) name);
+  check_valid_ptr((void *)name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct file* file = filesys_open(name);
   if (file == NULL) {
@@ -282,7 +285,7 @@ File descriptor 1 writes to the console.
   at least as long as size is not bigger than a few hundred bytes and 
   should break up larger buffers in the process.
 */
-int sys_write(int fd, void* buffer, unsigned size) { // const
+int sys_write(int fd, void* buffer, unsigned size) {
   // return -1;
   // check if a file is open
   // return error
@@ -312,14 +315,16 @@ int sys_write(int fd, void* buffer, unsigned size) { // const
   else { 
     // get file and fd_table. You can find it in process.h and file.h
     struct fd_table *fd_table = thread_current()->pcb->fd_table;
-    struct file *file = get_file_pointer(fd_table, fd);
-
-    // check if file is open (maybe function in file-descriptor.c) return -1 if not
-    if (find(fd_table, fd) == NULL) {
+    struct fd* fd = find(fd_table, fd);
+    if (fd == NULL) {
       // f->eax = -1;
       // need to exit kernel
       return -1;
     }
+
+    struct file *file = get_file_pointer(fd_table, fd);
+
+    // check if file is open (maybe function in file-descriptor.c) return -1 if not
 
     if (!can_write_to_file(file)) { // justice for matthew
       // f->eax = -1;
@@ -390,8 +395,7 @@ void sys_close(int fd) {
   if (file_desc == NULL) {
     sys_exit(-1);
   }
-  int status = remove(fd_table, fd);
-  if (status == -1) {
+  if (remove(fd_table, fd) == -1) {
     sys_exit(-1);
   }
 }
@@ -433,7 +437,9 @@ In order to make the test suite pass, you need to print out the
   name and exit code respectively subsitute %s and %d.
 */
 void sys_exit(int status) {
+  //f->eax = status;
   printf("%s: exit(%d)", thread_current()->pcb->process_name, status);
+  //return;
   process_exit();
 }
 
@@ -456,6 +462,7 @@ pid_t sys_exec(char* cmd_line) { // const
 
   pid_t pid = process_execute(cmd_line);
   // block until load is complete
+  // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
   
   /* Add the child process's shared_data to list of parent process's children processes */
   add_child(pid);
@@ -484,22 +491,9 @@ wait must fail and return -1 immediately if any of the
       (e.g. killed due to an exception), wait must return -1. 
 */
 // int sys_wait(pid_t pid) {
-// int sys_wait(pid_t pid) {
-//   struct process *pcb = thread_current() -> pcb;
-//   struct list *children = &(pcb -> children);
-
-//   /* Check if process is child of calling process */
-//   struct shared_data *child_data = find_shared_data(*children, pid);
-//   if (child_data == NULL) return -1;
-
-//   /* Wait for child process to exit */
-//   sema_down(&(child_data -> wait_sema));
-
-//   int exit_status = child_data -> exit_code;
-//   if ((child_data -> ref_count) == 0) free(child_data);
-
-//   return exit_status;
-// }
+int sys_wait(int pid) {
+  return -1 + pid - pid;
+}
 
 
 // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor

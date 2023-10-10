@@ -33,7 +33,10 @@ int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
 struct fd* add(struct fd_table *table, struct file* file);
 void init_table(struct fd_table* table);
 struct file* get_file_pointer(struct fd_table* fd_table, int fd);
-void free_table(struct fd_table *fd_table);
+
+// void free_table(struct fd_table *fd_table);
+
+
 
 // initialize fd_table
 // struct fd_table table;
