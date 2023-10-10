@@ -42,8 +42,8 @@ struct process {
  // shared data will be access by its own process and parent process using children list
 struct shared_data {
   bool load; /* Indicate child process is successfully loaded*/
-  //struct semaphore load_sema; /* Signal loading is completed whether it succeed or failed*/
-  struct semaphore wait_sema;
+  struct semaphore load_sema; /* Signal loading is completed whether it succeed or failed*/
+  //struct semaphore wait_sema;
   pid_t pid; /* my pid */
   struct list_elem elem; /* make it iterable*/
   int ref_count; /* set it free only when it is 0 i.e. no lost child!*/
