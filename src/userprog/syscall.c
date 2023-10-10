@@ -302,7 +302,7 @@ int sys_write(int fd, void* buffer, unsigned size) { // const
     //     putbuf((const char*) buffer, (size_t) (size - total)); 
     //   } 
     // }
-    return size;
+    return;
   } 
   else if (fd == 0) {
     return -1;
