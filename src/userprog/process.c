@@ -57,6 +57,7 @@ void userprog_init(void) {
 struct start_cmd {
   char* file_name;
   struct semaphore process_sema;
+  struct list *children;
 };
 
 pid_t process_execute(const char* file_name) {
@@ -82,6 +83,7 @@ pid_t process_execute(const char* file_name) {
   struct start_cmd start_cmd;
   start_cmd.file_name = fn_copy;
   sema_init(&(start_cmd.process_sema), 0);
+  start_cmd.children = &(thread_current() -> pcb -> children);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(token, PRI_DEFAULT, start_process, &start_cmd);
@@ -149,6 +151,8 @@ static void start_process(void* start_cmd) {
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
+    list_init(child_cmd -> children);
+    list_push_front(child_cmd -> children, &(new_shared_data -> elem));
   }
 
   // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/
