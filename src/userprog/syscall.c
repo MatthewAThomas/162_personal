@@ -386,7 +386,7 @@ int sys_wait(pid_t pid) {
   struct process *pcb = thread_current() -> pcb;
   struct list *children = &(pcb -> children);
 
-  struct shared_data *child_data = find_shared_data(*children, pid);
+  struct shared_data *child_data = find_shared_data(children, pid);
   if (!child_data) return -1;
   if (child_data -> waited_on) return -1;
   child_data -> waited_on = true;

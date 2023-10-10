@@ -56,7 +56,7 @@ void init_shared_data(struct shared_data* shared_data);
 /* end of helper*/
 
 /* Find the shared data struct of a (child) process */
-struct shared_data* find_shared_data(struct list children, int pid);
+struct shared_data* find_shared_data(struct list *children, int pid);
 void add_child(int child_pid);
 
 

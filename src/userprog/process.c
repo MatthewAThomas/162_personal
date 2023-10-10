@@ -705,9 +705,9 @@ struct process *find_process(int pid) {
   return NULL;
 }
 
-struct shared_data *find_shared_data(struct list children, int pid) {
+struct shared_data *find_shared_data(struct list *children, int pid) {
   struct list_elem* e;
-  struct list *all_list_ptr = &children;
+  struct list *all_list_ptr = children;
   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
     struct shared_data* shared_data = list_entry(e, struct shared_data, elem);
     if ((shared_data -> pid) == pid) return shared_data;
