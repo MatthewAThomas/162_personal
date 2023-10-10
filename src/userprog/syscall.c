@@ -310,8 +310,8 @@ int sys_write(int fd, void* buffer, unsigned size) {
   else { 
     // get file and fd_table. You can find it in process.h and file.h
     struct fd_table *fd_table = thread_current()->pcb->fd_table;
-    struct fd* fd = find(fd_table, fd);
-    if (fd == NULL) {
+    struct fd* file_desc = find(fd_table, fd);
+    if (file_desc == NULL) {
       // f->eax = -1;
       // need to exit kernel
       return -1;
@@ -385,7 +385,7 @@ If the operation is unsuccessful, it can either exit with -1
   or it can just fail silently.
 */
 void sys_close(int fd) {
-  if (fd == 0 || fd == 1) {
+  if (fd < 2) {
     sys_exit(-1);
   }
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
