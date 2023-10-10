@@ -51,10 +51,10 @@ int remove(struct fd_table* fd_table, int fd) {
         return -1;
     }
     struct list_elem* e = &(file_desc->list_fd);
-    list_remove(&(file_desc->list_fd));
+    list_remove(e);
     // free 
-    free(e);
-    free(file_desc);
+    // free(e);
+    // free(file_desc);
     return 0;    
 }
 
@@ -62,10 +62,10 @@ int remove(struct fd_table* fd_table, int fd) {
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd* file_descriptor = (struct fd*)malloc(sizeof(struct fd)); 
+    struct fd* file_descriptor = malloc(sizeof(struct fd)); 
     //memset(file_descriptor, 0, sizeof *file_descriptor); // todo: check if this initializes e correctly
     
-    struct list_elem* e = (struct list_elem*)malloc(sizeof(struct list_elem));
+    struct list_elem* e = malloc(sizeof(struct list_elem));
     
     //memset(&e, 0, sizeof *(&e)); // todo: check if this initializes e correctly
     e->prev = NULL; // todo: check if this is correct
@@ -90,11 +90,10 @@ struct file* get_file_pointer(struct fd_table *fd_table, int fd) {
     Initializes FD table.
 */    
 void init_table(struct fd_table *fd_table) {
-    struct list fds;
-    list_init(&fds);
-    fd_table->fds = fds;
+    struct list *fds = malloc(sizeof(struct list));
+    list_init(fds);
+    fd_table->fds = *fds;
     fd_table->next_unused_fd = 2;
-    // struct list *fds = malloc(sizeof(struct list));
     // list_init(fds);
     // fd_table->fds = fds;
     // fd_table->next_unused_fd = 2;

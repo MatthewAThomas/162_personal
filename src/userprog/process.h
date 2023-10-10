@@ -54,7 +54,8 @@ void init_shared_data(struct shared_data* shared_data);
 /* end of helper*/
 
 /* Find the shared data struct of a (child) process */
-struct shared_data* find_shared_data(struct process* pcb, int pid);
+//struct shared_data* find_shared_data(struct list children, int pid);
+struct shared_data* find_shared_data (struct process *, int);
 void add_child(int child_pid);
 
 
@@ -73,5 +74,6 @@ tid_t pthread_join(tid_t);
 void pthread_exit(void);
 void pthread_exit_main(void);
 struct process *find_process(int pid);
+
 
 #endif /* userprog/process.h */

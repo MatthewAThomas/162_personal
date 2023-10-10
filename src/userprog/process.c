@@ -26,7 +26,7 @@ static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-struct shared_data* find_shared_data(struct process* pcb, int pid);
+// struct shared_data* find_shared_data(struct process* pcb, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -75,12 +75,10 @@ pid_t process_execute(const char* file_name) {
   
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-  else {
     // tid is the child process pid
     // need to find child's shared_data
     // struct shared_data* child_shared_data = find_shared_data(tid);
     // sema_down(&(child_shared_data -> child_load_sema));
-  }
   
   return tid;
 }
@@ -99,10 +97,10 @@ static void start_process(void* file_name_) {
   bool shared_data_success;
 
   /* Allocate process control block */
-  struct process* new_pcb = (struct process*)malloc(sizeof(struct process));
+  struct process* new_pcb = malloc(sizeof(struct process));
   //Allocates file descriptor table on the heap to avoid stack overflow
-  struct fd_table *new_fd_table = (struct fd_table*)malloc(sizeof(struct fd_table));
-  struct shared_data *new_shared_data = (struct shared_data*)malloc(sizeof(struct shared_data));
+  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
 
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
@@ -119,7 +117,9 @@ static void start_process(void* file_name_) {
 
     // Initialize fd_table
     init_table(new_fd_table);
-
+    // Initialize child list and semaphore
+    list_init(&(new_pcb -> children));
+    sema_init(&(new_pcb -> list_sema), 0);
     // Initialize shared_data;
     init_shared_data(new_shared_data);
 
