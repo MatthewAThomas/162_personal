@@ -50,10 +50,6 @@ void userprog_init(void) {
   ASSERT(success);
 }
 
-// +struct start_cmd {^M
-// +  char* file_name;^M
-// +  struct semaphore process_sema;^M
-// +}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -120,7 +116,7 @@ pid_t process_execute(const char* file_name) {
 
 /* A thread function that loads a user process and starts it
    running. */
-static void start_process(void* file_name_) {
+static void start_process(void* start_cmd) {
   // char* file_name = (char*)file_name_;
   struct start_cmd* child_cmd = (struct start_cmd*) start_cmd;
   char* file_name = (char*)child_cmd->file_name;
@@ -208,7 +204,8 @@ static void start_process(void* file_name_) {
     success = load(argv[0], &if_.eip, &if_.esp);
     
     /* After load, let the parent process know that it can stop blocking */
-    sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
+    // sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
+    sema_up(&child_cmd->process_sema);
   }
 
   
@@ -360,7 +357,7 @@ void process_exit(void) {
      If this happens, then an unfortuantely timed timer interrupt
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
-  sema_up(&(cur->pcb->shared_data->wait_sema));
+  sema_up(&(cur->pcb->shared_data->load_sema));
 
   // free all 
   // ADDED
@@ -702,19 +699,6 @@ static bool install_page(void* upage, void* kpage, bool writable) {
           pagedir_set_page(t->pcb->pagedir, upage, kpage, writable));
 }
 
-/* Returns shared_data struct of process struct with <pid> */
-// struct shared_data* find_shared_data(struct process* pcb, int pid) {
-//   //only current process will be passed?
-//   //struct fd* file_desc;
-//   struct list_elem* e;
-//   for (e = list_begin(pcb->shared_data); e != list_end(pcb->shared_data); e = list_next(e)) {
-//       shared_data* file_desc = list_entry(e, struct shared_data, list_fd);
-//       if (file_desc != NULL && file_desc->val == fd) {
-//           return &file_desc;
-//       }
-//   } 
-//   return NULL;
-// }
 
 void init_shared_data(struct shared_data* shared_data) {
   shared_data->pid = thread_current()->tid;
@@ -722,6 +706,7 @@ void init_shared_data(struct shared_data* shared_data) {
   shared_data->ref_count = 1; // ADDED; changed to from 0 to 1
   shared_data->exit_code = 0; // not sure if it should be -1 or 0
   sema_init(&(shared_data->load_sema), 0);  
+  shared_data -> waited_on = false; 
 }
 
 /* Takes a pid and finds the corresponding process struct */
@@ -731,7 +716,19 @@ struct process *find_process(int pid) {
   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
     struct thread* t = list_entry(e, struct thread, allelem);
     struct process *pcb = t -> pcb;
+    if (!pcb || !(pcb -> shared_data)) continue; 
     if ((pcb -> shared_data -> pid) == pid) return pcb;
+  }
+  return NULL;
+}
+
+
+struct shared_data *find_shared_data(struct list children, int pid) {
+  struct list_elem* e;
+  struct list *all_list_ptr = &children;
+  for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
+    struct shared_data* shared_data = list_entry(e, struct shared_data, elem);
+    if ((shared_data -> pid) == pid) return shared_data;
   }
   return NULL;
 }
@@ -740,7 +737,7 @@ struct process *find_process(int pid) {
 void add_child(int child_pid) {
   struct process *parent_pcb = thread_current() -> pcb;
   struct process *child_pcb = find_process(child_pid);
-
+  if (!child_pcb) return; 
   struct list *children = &(parent_pcb -> children);
   struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
 
