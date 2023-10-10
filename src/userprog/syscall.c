@@ -78,11 +78,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
-
-    // added^M
-    //struct fd_table* fd_table = thread_current()->pcb->fd_table;^M
-    // free all ^M
-    // free_table(fd_table);^M
     // actually need to call process exit on all pcb^M
   } 
   // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
@@ -390,6 +385,9 @@ If the operation is unsuccessful, it can either exit with -1
   or it can just fail silently.
 */
 void sys_close(int fd) {
+  if (fd == 0 || fd == 1) {
+    sys_exit(-1);
+  }
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* file_desc = find(fd_table, fd);
   if (file_desc == NULL) {

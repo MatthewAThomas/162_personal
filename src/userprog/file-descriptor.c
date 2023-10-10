@@ -40,17 +40,25 @@ int remove(struct fd_table* fd_table, int fd) {
     if (file_desc == NULL) {
         return -1;
     }
-    return 0;
+    // return 0;
+    // ADDED (not from bricked code)
+    struct list_elem* e = &(file_desc->list_fd);
+    
+    list_remove(e);
 
-    // if (file_desc == NULL) {
-    //      return -1;
-    //  }
+    free(file_desc->file);
+    free(file_desc);
+    return 0;
+    // END ADD
+
+    // ADDED
     // struct list_elem* e = &(file_desc->list_fd);
     // list_remove(e);
     // // free 
     // free(e);
     // free(file_desc);
-
+    // return 0;
+    // END ADD
 
 }
 
@@ -58,19 +66,23 @@ int remove(struct fd_table* fd_table, int fd) {
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd* file_descriptor = malloc(sizeof(struct fd)); 
+    struct fd* file_descriptor = calloc(sizeof(struct fd), 1); 
     //memset(file_descriptor, 0, sizeof *file_descriptor); // todo: check if this initializes e correctly
-    
-    struct list_elem* e = malloc(sizeof(struct list_elem));
+    // struct list_elem* e;
+    // struct list_elem* e = malloc(sizeof(struct list_elem));
+    struct list_elem* e = &(file_descriptor->list_fd);
     
     //memset(&e, 0, sizeof *(&e)); // todo: check if this initializes e correctly
-    e->prev = NULL; // todo: check if this is correct
-    e->next = NULL; // todo: check if this is correct for initializing e
-    file_descriptor->list_fd = *e;
+    // e->prev = NULL; // todo: check if this is correct
+    // e->next = NULL; // todo: check if this is correct for initializing e
+    // file_descriptor->list_fd = *e;
     file_descriptor->val = fd_table->next_unused_fd;
     file_descriptor->file = file;
     fd_table->next_unused_fd += 1;
-    list_push_back(&fd_table->fds, e);
+    // elem != NULL && elem->prev != NULL && elem->next != NULL;
+
+    list_push_back(&(fd_table->fds), e);
+    file_descriptor->list_fd = *e;
     return file_descriptor;
 }
 
@@ -86,19 +98,24 @@ struct file* get_file_pointer(struct fd_table *fd_table, int fd) {
     Initializes FD table.
 */    
 void init_table(struct fd_table *fd_table) {
-    struct list fds;
-    // struct list *fds = malloc(sizeof(struct list));
+    // struct list* fds;
+    
+    // ADDED
+    // struct list* fds = malloc(sizeof(struct list));
     // list_init(fds);
     // fd_table->fds = *fds;
-    list_init(&fds);
-    fd_table->fds = fds;
+    // END ADD
+
+    // ADDED (not from bricked code)
+    // struct list* fds = calloc(sizeof(struct list), 1); 
+    struct list* fds = &(fd_table->fds);
+    // END ADD
+    list_init(fds);
+    fd_table->fds = *fds;
     fd_table->next_unused_fd = 2;
-    // list_init(fds);
-    // fd_table->fds = fds;
-    // fd_table->next_unused_fd = 2;
 }
 
-// void free_table(struct fd_table *fd_table) {
+// void free_table(struct fd_table *fd_table) { // ADDED
 //     struct list_elem* curr;
 //     struct list_elem* next;
 //     struct list_elem* last = list_tail(&fd_table->fds);
@@ -113,5 +130,19 @@ void init_table(struct fd_table *fd_table) {
 //     } 
 //     free(&(fd_table->fds));
 //     free(fd_table);
-// }
+// } // END ADD
+
+
+// ADDED (not from bricked code)
+void free_table(struct fd_table *fd_table) {
+    struct list_elem* curr;
+
+    while(!list_empty (&(fd_table->fds))) {
+        curr = list_pop_front(&(fd_table->fds));
+        free(curr);
+    }
+
+    // free(&(fd_table->fds));
+    free(fd_table);
+} // END ADD
 

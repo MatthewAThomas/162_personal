@@ -34,7 +34,7 @@ bool setup_thread(void (**eip)(void), void** esp);
    the first user process. Any additions to the PCB should be also
    initialized here if main needs those members */
 void userprog_init(void) {
-  struct thread* t = thread_current();
+  struct thread* t = thread_current(); 
   bool success;
 
   /* Allocate process control block
@@ -42,7 +42,7 @@ void userprog_init(void) {
      so that t->pcb->pagedir is guaranteed to be NULL (the kernel's
      page directory) when t->pcb is assigned, because a timer interrupt
      can come at any time and activate our pagedir */
-  t->pcb = calloc(sizeof(struct process), 1);
+  t->pcb = calloc(sizeof(struct process), 1); // has memory leak here if not freed later accordingly
   success = t->pcb != NULL;
 
   /* Kill the kernel if we did not succeed */
@@ -107,10 +107,13 @@ static void start_process(void* file_name_) {
   bool shared_data_success;
 
   /* Allocate process control block */
-  struct process* new_pcb = malloc(sizeof(struct process));
+  // struct process* new_pcb = malloc(sizeof(struct process));
+  // struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
+  // struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
+  struct process* new_pcb = calloc(sizeof(struct process), 1); // TODO: probably need to do calloc here too
   //Allocates file descriptor table on the heap to avoid stack overflow
-  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
-  struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
+  struct fd_table *new_fd_table = calloc(sizeof(struct fd_table), 1);
+  struct shared_data *new_shared_data = calloc(sizeof(struct shared_data), 1);
 
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
@@ -253,7 +256,7 @@ static void start_process(void* file_name_) {
   if (!success && fd_table_success) {
     struct fd_table *fd_table_to_free = t->pcb->fd_table;
     // Free file descriptor list
-    if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds);
+    // if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds); // ADDED; actually just commented out
     // Free file descriptor table
     free(t->pcb->fd_table);
   }
@@ -333,17 +336,21 @@ void process_exit(void) {
   struct process* pcb_to_free = cur->pcb;
 
   // free all 
-  // free_table(pcb_to_free->fd_table);
+  // ADDED
+  free_table(pcb_to_free->fd_table);
   // free(pcb_to_free->main_thread);
-  // if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
+  pcb_to_free->shared_data->ref_count -= 1;
+  if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
+    free(pcb_to_free->shared_data);
+  }
 
-  //   free(pcb_to_free->shared_data);
-  // }
-  // else {
-  //   pcb_to_free->shared_data->ref_count -= 1;
-  // }
+  // for sake of not having memory leaks for now, freeing shared data without paying attention to children processes
+  // END ADDED
   cur->pcb = NULL;
   free(pcb_to_free);
+
+  //struct process* new_pcb = calloc(sizeof(struct process), 1); // TODO: probably need to do calloc here too
+  //Allocates file descriptor table on the heap to avoid stack overflow
   // need to free shared data, fd table contents, etc.
   
 
@@ -685,7 +692,7 @@ static bool install_page(void* upage, void* kpage, bool writable) {
 void init_shared_data(struct shared_data* shared_data) {
   shared_data->pid = thread_current()->tid;
   shared_data->load = false;
-  shared_data->ref_count = 0;
+  shared_data->ref_count = 1; // ADDED; changed to from 0 to 1
   shared_data->exit_code = 0; // not sure if it should be -1 or 0
   sema_init(&(shared_data->load_sema), 0);  
 }

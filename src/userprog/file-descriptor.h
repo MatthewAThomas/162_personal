@@ -34,7 +34,7 @@ struct fd* add(struct fd_table *table, struct file* file);
 void init_table(struct fd_table* table);
 struct file* get_file_pointer(struct fd_table* fd_table, int fd);
 
-// void free_table(struct fd_table *fd_table);
+void free_table(struct fd_table *fd_table); // ADDED
 
 
 
