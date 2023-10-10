@@ -43,10 +43,11 @@ struct process {
 struct shared_data {
   bool load; /* Indicate child process is successfully loaded*/
   struct semaphore load_sema; /* Signal loading is completed whether it succeed or failed*/
+  struct semaphore wait_sema;
   pid_t pid; /* my pid */
   struct list_elem elem; /* make it iterable*/
   int ref_count; /* set it free only when it is 0 i.e. no lost child!*/
-  int exit_code; /*meta data to hold exit status even after process/thread is gone*/
+  int exit_code; /* meta data to hold exit status even after process/thread is gone*/
 };
 
 /* project 1 process helper*/
@@ -54,7 +55,7 @@ void init_shared_data(struct shared_data* shared_data);
 /* end of helper*/
 
 /* Find the shared data struct of a (child) process */
-struct shared_data* find_shared_data(struct process* pcb, int pid);
+struct shared_data* find_shared_data(struct list children, int pid);
 void add_child(int child_pid);
 
 

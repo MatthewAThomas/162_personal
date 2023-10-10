@@ -95,9 +95,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   else if (args[0] == SYS_HALT) {
       // printf("System call number: %d\n", args[0]);
   }
-  else if (args[0] == SYS_EXIT) {
-      // printf("System call number: %d\n", args[0]);
-  }
   else if (args[0] == SYS_EXEC) {
     // printf("System call number: %d\n", args[0]);
     // char *cmd_line = args[1];
@@ -109,9 +106,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // need sanitizing :)
     char *cmd_line = args[1];
     f -> eax = sys_exec(cmd_line);
+    return;
   }
   else if (args[0] == SYS_WAIT) {
-      // printf("System call number: %d\n", args[0]);
+    // printf("System call number: %d\n", args[0]);
+    int pid = args[1];
+    f -> eax = sys_wait(pid);
+    return;
   }
   
   
@@ -340,7 +341,6 @@ pid_t sys_exec(const char* cmd_line) {
 
   pid_t pid = process_execute(cmd_line);
   // block until load is complete
-  // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
   
   /* Add the child process's shared_data to list of parent process's children processes */
   add_child(pid);
@@ -368,9 +368,22 @@ wait must fail and return -1 immediately if any of the
     3) If pid did not call exit but was terminated by the kernel 
       (e.g. killed due to an exception), wait must return -1. 
 */
-// int sys_wait(pid_t pid) {
-//   return -1;
-// }
+int sys_wait(pid_t pid) {
+  struct process *pcb = thread_current() -> pcb;
+  struct list *children = &(pcb -> children);
+
+  /* Check if process is child of calling process */
+  struct shared_data *child_data = find_shared_data(*children, pid);
+  if (child_data == NULL) return -1;
+
+  /* Wait for child process to exit */
+  sema_down(&(child_data -> wait_sema));
+
+  int exit_status = child_data -> exit_code;
+  if ((child_data -> ref_count) == 0) free(child_data);
+
+  return exit_status;
+}
 
 
   // refer to file.c instead from filesys/// write from buffer to corresponding file pointed by file descriptor

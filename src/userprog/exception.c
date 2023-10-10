@@ -79,6 +79,7 @@ static void kill(struct intr_frame* f) {
              intr_name(f->vec_no));
       intr_dump_frame(f);
       printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+      thread_current()->pcb->shared_data->exit_code = -1;
       process_exit();
       NOT_REACHED();
 
