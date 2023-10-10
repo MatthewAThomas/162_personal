@@ -48,6 +48,7 @@ struct shared_data {
   struct list_elem elem; /* make it iterable*/
   int ref_count; /* set it free only when it is 0 i.e. no lost child!*/
   int exit_code; /* meta data to hold exit status even after process/thread is gone*/
+  bool waited_on;
 };
 
 /* project 1 process helper*/

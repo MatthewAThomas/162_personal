@@ -688,7 +688,8 @@ void init_shared_data(struct shared_data* shared_data) {
   shared_data->exit_code = 0; // not sure if it should be -1 or 0
   //shared_data->load_sema = process_sema;
   sema_init(&(shared_data->wait_sema), 0);
-  // sema_init(&(shared_data->load_sema), 0);  
+  // sema_init(&(shared_data->load_sema), 0); 
+  shared_data -> waited_on = false; 
 }
 
 /* Takes a pid and finds the corresponding process struct */
