@@ -26,7 +26,7 @@ static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-// struct shared_data* find_shared_data(struct process* pcb, int pid);
+//struct shared_data* find_shared_data(struct list children, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -61,6 +61,7 @@ void userprog_init(void) {
 struct start_cmd {
   char* file_name;
   struct semaphore process_sema;
+  struct list *children;
 };
 
 pid_t process_execute(const char* file_name) {
@@ -77,11 +78,34 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  char *token, *save_ptr;
-  token = strtok_r(file_name, " ", &save_ptr);
   // todo: need to make sure that no file can edit the executable on disk + check if executable exists in file directory (see: filesys.c)
+  // initialize 
+  // char *token, *save_ptr;
+  // token = strtok_r(file_name, " ", &save_ptr);
+  // Find the position of the first space in the sentence
+  size_t i = 0;
+  while (file_name[i] != ' ' && file_name[i] != '\0') {
+    i++;
+  }
+  char* prog_name = malloc(sizeof(char)*(i+1));
+  strlcpy(prog_name, file_name, i+1);
+  prog_name[i+2] = '\0';
+
+  // use load sema to signal it is complete
+  // but it is not initialized yet.
+  struct start_cmd start_cmd;
+  start_cmd.file_name = fn_copy;
+  sema_init(&(start_cmd.process_sema), 0);
+  start_cmd.children = &(thread_current() -> pcb -> children);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
+
+  /* Down the process_sema; wait for child process to finish loading */
+  //sema_down(&process_sema);
+  // find child
+  // struct shared_data* child_shared_data = find_shared_data(thread_current()->pcb->children, tid);
+  // fuck hmm..
   
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
@@ -150,6 +174,8 @@ static void start_process(void* file_name_) {
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
+    list_init(child_cmd -> children);
+    list_push_front(child_cmd -> children, &(new_shared_data -> elem));
   }
 
   // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/

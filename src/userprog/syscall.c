@@ -83,6 +83,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
+    thread_current() -> pcb -> shared_data -> exit_code = args[1];
     process_exit();
     // actually need to call process exit on all pcb^M
   } 
@@ -496,9 +497,29 @@ wait must fail and return -1 immediately if any of the
     3) If pid did not call exit but was terminated by the kernel 
       (e.g. killed due to an exception), wait must return -1. 
 */
-// int sys_wait(pid_t pid) {
-int sys_wait(int pid) {
-  return -1 + pid - pid;
+
+int sys_wait(pid_t pid) {
+  // struct process *pcb = thread_current() -> pcb;
+  // struct list *children = &(pcb -> children);
+
+  // /* Check if process is child of calling process */
+  // struct shared_data *child_data = find_shared_data(*children, pid);
+  // if (child_data == NULL) return -1;
+
+  // /* Wait for child process to exit */
+  // sema_down(&(child_data -> wait_sema));
+
+  // int exit_status = child_data -> exit_code;
+  // if ((child_data -> ref_count) == 0) free(child_data);
+
+  struct process *pcb = thread_current() -> pcb;
+  struct list *children = &(pcb -> children);
+  struct shared_data *child_data = find_shared_data(*children, pid);
+
+  sema_down(&(child_data -> wait_sema));
+  int exit_status = child_data -> exit_code;
+
+  return exit_status;
 }
 
 
