@@ -210,10 +210,7 @@ static void start_process(void* file_name_) {
   // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
   if_.esp = if_.esp - sizeof(char*); // decrement address
   memset(if_.esp, argv[argc], sizeof(char*));
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
 
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
@@ -325,12 +322,8 @@ void process_exit(void) {
   // free all 
   // free_table(pcb_to_free->fd_table);
   // free(pcb_to_free->main_thread);
-<<<<<<< Updated upstream
   // if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
 
-=======
-  // if (pcb_to_free->shared_data->ref_count == 0) {
->>>>>>> Stashed changes
   //   free(pcb_to_free->shared_data);
   // }
   // else {
