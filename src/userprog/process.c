@@ -705,7 +705,9 @@ void init_shared_data(struct shared_data* shared_data) {
   shared_data->load = false;
   shared_data->ref_count = 1; // ADDED; changed to from 0 to 1
   shared_data->exit_code = 0; // not sure if it should be -1 or 0
-  sema_init(&(shared_data->load_sema), 0);  
+  //shared_data->load_sema = process_sema;
+  sema_init(&(shared_data->load_sema), 0);
+  // sema_init(&(shared_data->load_sema), 0); 
   shared_data -> waited_on = false; 
 }
 
@@ -722,10 +724,9 @@ struct process *find_process(int pid) {
   return NULL;
 }
 
-
-struct shared_data *find_shared_data(struct list children, int pid) {
+struct shared_data *find_shared_data(struct list *children, int pid) {
   struct list_elem* e;
-  struct list *all_list_ptr = &children;
+  struct list *all_list_ptr = children;
   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
     struct shared_data* shared_data = list_entry(e, struct shared_data, elem);
     if ((shared_data -> pid) == pid) return shared_data;
