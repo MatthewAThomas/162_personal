@@ -1,4 +1,3 @@
-#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -20,6 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/file-descriptor.h" // added
+#include "userprog/process.h" // added
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -99,14 +99,14 @@ static void start_process(void* file_name_) {
   bool shared_data_success;
 
   /* Allocate process control block */
-  struct process* new_pcb = malloc(sizeof(struct process));
+  struct process* new_pcb = (struct process*)malloc(sizeof(struct process));
   //Allocates file descriptor table on the heap to avoid stack overflow
-  struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
-  struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
+  struct fd_table *new_fd_table = (struct fd_table*)malloc(sizeof(struct fd_table));
+  struct shared_data *new_shared_data = (struct shared_data*)malloc(sizeof(struct shared_data));
 
   pcb_success = new_pcb != NULL;
   fd_table_success = new_fd_table != NULL;
-  shared_data_success = new_shared_data != NULL;
+  shared_data_success = new_shared_data != NULL; 
 
   success = pcb_success && fd_table_success && shared_data_success;
  
@@ -209,8 +209,11 @@ static void start_process(void* file_name_) {
 
   // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
   if_.esp = if_.esp - sizeof(char*); // decrement address
-  memset(if_.esp, (int)(argv[argc]), sizeof(char*));
+  memset(if_.esp, argv[argc], sizeof(char*));
+<<<<<<< Updated upstream
+=======
 
+>>>>>>> Stashed changes
 
   // stack pointers(argv[i]) in reverse order
   for (int i = 0 ; i < argc ; i++) {
@@ -320,14 +323,19 @@ void process_exit(void) {
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
   // free all 
-  free_table(pcb_to_free->fd_table);
-  free(pcb_to_free->main_thread);
-  if (pcb_to_free->shared_data->ref_count == 0) {
-    free(pcb_to_free->shared_data);
-  }
-  else {
-    pcb_to_free->shared_data->ref_count -= 1;
-  }
+  // free_table(pcb_to_free->fd_table);
+  // free(pcb_to_free->main_thread);
+<<<<<<< Updated upstream
+  // if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
+
+=======
+  // if (pcb_to_free->shared_data->ref_count == 0) {
+>>>>>>> Stashed changes
+  //   free(pcb_to_free->shared_data);
+  // }
+  // else {
+  //   pcb_to_free->shared_data->ref_count -= 1;
+  // }
   cur->pcb = NULL;
   free(pcb_to_free);
   // need to free shared data, fd table contents, etc.

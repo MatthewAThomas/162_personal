@@ -74,11 +74,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     // added
-    struct fd_table* fd_table = thread_current()->pcb->fd_table;
+    //struct fd_table* fd_table = thread_current()->pcb->fd_table;
     // free all 
-    free_table(fd_table);
+    // free_table(fd_table);
     // actually need to call process exit on all pcb
-    sys_exit(args[1]);
+    printf("%s: exit(%d)", thread_current()->pcb->process_name, args[1]);
+    process_exit();
   } 
   // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
   //   f->eax = sys_practice(args[1]);
