@@ -19,7 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-//#include "userprog/file-descriptor.h" // added 
+#include "userprog/file-descriptor.h" // added
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -69,6 +69,7 @@ pid_t process_execute(const char* file_name) {
 
   char *token, *save_ptr;
   token = strtok_r(file_name, " ", &save_ptr);
+  // todo: need to make sure that no file can edit the executable on disk + check if executable exists in file directory (see: filesys.c)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
   
@@ -208,7 +209,7 @@ static void start_process(void* file_name_) {
 
   // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
   if_.esp = if_.esp - sizeof(char*); // decrement address
-  memset(if_.esp, argv[argc], sizeof(char*));
+  memset(if_.esp, (int)(argv[argc]), sizeof(char*));
 
 
   // stack pointers(argv[i]) in reverse order
@@ -318,8 +319,19 @@ void process_exit(void) {
      If this happens, then an unfortuantely timed timer interrupt
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
+  // free all 
+  free_table(pcb_to_free->fd_table);
+  free(pcb_to_free->main_thread);
+  if (pcb_to_free->shared_data->ref_count == 0) {
+    free(pcb_to_free->shared_data);
+  }
+  else {
+    pcb_to_free->shared_data->ref_count -= 1;
+  }
   cur->pcb = NULL;
   free(pcb_to_free);
+  // need to free shared data, fd table contents, etc.
+  
 
   sema_up(&temporary);
   thread_exit();
