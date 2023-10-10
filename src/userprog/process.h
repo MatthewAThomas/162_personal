@@ -56,6 +56,7 @@ void init_shared_data(struct shared_data* shared_data);
 /* Find the shared data struct of a (child) process */
 struct shared_data* find_shared_data(struct process* pcb, int pid);
 void add_child(int child_pid);
+//struct process *find_process(int pid);
 
 
 void userprog_init(void);

@@ -31,15 +31,6 @@ struct fd* find(struct fd_table* fd_table, int fd) {
 }
 
 
-/*
-    Removes the given FD from the FD table and returns the associated FD. Returns NULL if it does not exist. 
-*/
-struct fd* pop(struct fd_table* fd_table, int fd) {
-    struct fd* file_desc = find(fd_table, fd);
-    struct list_elem* e = &(file_desc->list_fd);
-    list_remove(e); // returns a value, but we don't want to keep the list_elem
-    return file_desc;
-}
 
 /*
     Removes the given FD from the FD table. Returns -1 if it does not exist. 
@@ -51,17 +42,28 @@ int remove(struct fd_table* fd_table, int fd) {
     if (list_remove(&(file_desc->list_fd)) == NULL) {
         return -1;
     }
-    return 0;    
+    return 0;
+
+    // if (file_desc == NULL) {
+    //      return -1;
+    //  }
+    // struct list_elem* e = &(file_desc->list_fd);
+    // list_remove(e);
+    // // free 
+    // free(e);
+    // free(file_desc);
+
+
 }
 
 /*
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd* file_descriptor = (struct fd*)malloc(sizeof(struct fd)); 
+    struct fd* file_descriptor = malloc(sizeof(struct fd)); 
     //memset(file_descriptor, 0, sizeof *file_descriptor); // todo: check if this initializes e correctly
     
-    struct list_elem* e = (struct list_elem*)malloc(sizeof(struct list_elem));
+    struct list_elem* e = malloc(sizeof(struct list_elem));
     
     //memset(&e, 0, sizeof *(&e)); // todo: check if this initializes e correctly
     e->prev = NULL; // todo: check if this is correct
@@ -87,6 +89,9 @@ struct file* get_file_pointer(struct fd_table *fd_table, int fd) {
 */    
 void init_table(struct fd_table *fd_table) {
     struct list fds;
+    // struct list *fds = malloc(sizeof(struct list));
+    // list_init(fds);
+    // fd_table->fds = *fds;
     list_init(&fds);
     fd_table->fds = fds;
     fd_table->next_unused_fd = 2;
@@ -96,4 +101,21 @@ void init_table(struct fd_table *fd_table) {
     // fd_table->next_unused_fd = 2;
 }
 
+
+// void free_table(struct fd_table *fd_table) {
+//     struct list_elem* curr;
+//     struct list_elem* next;
+//     struct list_elem* last = list_tail(&fd_table->fds);
+//     for (curr = list_begin(&fd_table->fds), next = curr; !list_empty(&fd_table->fds); curr = next) {
+//         if(curr != last) {
+//             next = list_next(curr);
+//         }
+//         struct fd* file_desc = list_entry(curr, struct fd, list_fd);
+//         if (file_desc != NULL) {
+//             free(file_desc);
+//         }
+//     } 
+//     free(&(fd_table->fds));
+//     free(fd_table);
+// }
 

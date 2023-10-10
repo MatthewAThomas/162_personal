@@ -19,7 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-//#include "userprog/file-descriptor.h" // added 
+#include "userprog/file-descriptor.h" // added 
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -49,6 +49,11 @@ void userprog_init(void) {
   ASSERT(success);
 }
 
+// +struct start_cmd {^M
+// +  char* file_name;^M
+// +  struct semaphore process_sema;^M
+// +}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -69,6 +74,7 @@ pid_t process_execute(const char* file_name) {
 
   char *token, *save_ptr;
   token = strtok_r(file_name, " ", &save_ptr);
+  // todo: need to make sure that no file can edit the executable on disk + check if executable exists in file directory (see: filesys.c)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
   
@@ -118,6 +124,10 @@ static void start_process(void* file_name_) {
 
     // Initialize fd_table
     init_table(new_fd_table);
+
+    // Initialize child list and semaphore
+    // list_init(&(new_pcb -> children));
+    // sema_init(&(new_pcb -> list_sema), 0);
 
     // Initialize shared_data;
     init_shared_data(new_shared_data);
@@ -318,8 +328,19 @@ void process_exit(void) {
      If this happens, then an unfortuantely timed timer interrupt
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
+//   +  // free all ^M
+// +  // free_table(pcb_to_free->fd_table);^M
+// +  // free(pcb_to_free->main_thread);^M
+// +  // if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc^M
+// +^M
+// +  //   free(pcb_to_free->shared_data);^M
+// +  // }^M
+// +  // else {^M
+// +  //   pcb_to_free->shared_data->ref_count -= 1;^M
+// +  // }^M
   cur->pcb = NULL;
   free(pcb_to_free);
+  // need to free shared data, fd table contents, etc.^
 
   sema_up(&temporary);
   thread_exit();

@@ -11,6 +11,10 @@
 
 #include "filesys/filesys.h" // added here
 #include "devices/input.h"
+#include <stdlib.h>
+#include "threads/pte.h"
+#include "userprog/pagedir.h" // needed for pointer verification to unmapped things
+#include "threads/malloc.h"
 //Added 
 //#include "file-descriptor.h" 
 //#include "userprog/process.h"
@@ -24,10 +28,27 @@ void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "
   /* printf("System call number: %d\n", args[0]); */
   /* Check to see if ptr is outside of user memory. If so, exit*/
 void check_valid_ptr(void *ptr) {
-  if (!is_user_vaddr(ptr) || ptr == NULL || (uint32_t)ptr == 0) { // ptr < 0 gets compile error (int and pointer comparison)
-    printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+  // if (!is_user_vaddr(ptr) || ptr == NULL || (uint32_t)ptr == 0) { // ptr < 0 gets compile error (int and pointer comparison)
+  //   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+  //   process_exit();
+  // }
+  struct thread* cur = thread_current();
+  if (ptr == NULL || (uint32_t)ptr == 0 || is_kernel_vaddr(ptr)) { // || (uint32_t)ptr >= 64*1024*1024
+    // ptr < 0 gets compile error (int and pointer comparison)
+    printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
   }
+  uint32_t* pd = cur->pcb->pagedir;
+  if (pagedir_get_page(pd, ptr) == NULL) { // is unmapped in current directory
+    printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
+    process_exit();
+   }
+  // check if on boundary with pde_get_pt(uint32_t pde)
+  // pg_no(const void* va)
+  // if (pg_no(ptr) != pg_round_up(ptr)) {
+  //   printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
+  //   process_exit();
+  // }
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
@@ -57,6 +78,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
+
+    // added^M
+    //struct fd_table* fd_table = thread_current()->pcb->fd_table;^M
+    // free all ^M
+    // free_table(fd_table);^M
+    // actually need to call process exit on all pcb^M
   } 
   // else if (args[0] == SYS_PRACTICE) { // TODO what is practice syscall number?
   //   f->eax = sys_practice(args[1]);
@@ -65,18 +92,23 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {
     // printf("System call number: %d\n", args[0]);
+    f->eax = sys_create((void*)args[1], args[2]);
   }
   else if (args[0] == SYS_REMOVE) {
       // printf("System call number: %d\n", args[0]);
+      f->eax = sys_remove((void*)args[1]);
   }
   else if (args[0] == SYS_OPEN) {
       // printf("System call number: %d\n", args[0]);
+      f->eax = sys_open((void*)args[1]);
   }
   else if (args[0] == SYS_FILESIZE) {
       // printf("System call number: %d\n", args[0]);
+      f->eax = sys_filesize(args[1]);
   }
   else if (args[0] == SYS_READ) {
       // printf("System call number: %d\n", args[0]);
+      f->eax = sys_read(args[1], (void*)args[2], args[3]);
   }
   else if (args[0] == SYS_WRITE) {
       // printf("System call number: %d\n", args[0]);
@@ -88,6 +120,22 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       f->eax = sys_write(args[1], (void*)args[2], args[3]);
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
+
+  else if (args[0] == SYS_SEEK) {
+    // printf("System call number: %d\n", args[0]);
+    sys_seek(args[1], args[2]);
+  }
+  else if (args[0] == SYS_TELL) {
+    // printf("System call number: %d\n", args[0]);^
+    f->eax = sys_tell(args[1]);
+  }
+  else if (args[0] == SYS_CLOSE) {
+    // printf("System call number: %d\n", args[0]);
+    sys_close(args[1]);  
+  }
+
+
+
   
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
@@ -126,10 +174,10 @@ Returns true if successful, false otherwise.
 Creating a new file does not open it: opening the new file is 
   a separate operation which would require an open system call.
 */
-// bool sys_create(const char* file, unsigned initial_size) {
-//     check_valid_ptr((void *) file);
-//     return filesys_create(file, (off_t)initial_size);
-// }
+bool sys_create(char* file, unsigned initial_size) {
+    check_valid_ptr((void *) file);
+    return filesys_create(file, (off_t)initial_size);
+}
 
 
 /*
@@ -138,10 +186,10 @@ Returns true if successful, false otherwise.
 A file may be removed regardless of whether it is open or closed, 
   and removing an open file does not close it. 
 */
-// bool sys_remove(const char* file) {
-//   check_valid_ptr((void *) file);  
-//   return filesys_remove(file);
-// }
+bool sys_remove(char* file) {
+  check_valid_ptr((void *) file);  
+  return filesys_remove(file);
+}
 
 
 /*
@@ -164,7 +212,7 @@ When a single file is opened more than once, whether
 */
 
 int sys_open(char* name) { // const
-  check_valid_ptr(name);
+  check_valid_ptr((void *)name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct file* file = filesys_open(name);
   if (file == NULL) {
@@ -266,14 +314,16 @@ int sys_write(int fd, void* buffer, unsigned size) {
   else { 
     // get file and fd_table. You can find it in process.h and file.h
     struct fd_table *fd_table = thread_current()->pcb->fd_table;
-    struct file *file = get_file_pointer(fd_table, fd);
-
-    // check if file is open (maybe function in file-descriptor.c) return -1 if not
-    if (find(fd_table, fd) == NULL) {
+    struct fd* fd = find(fd_table, fd);
+    if (fd == NULL) {
       // f->eax = -1;
       // need to exit kernel
       return -1;
     }
+
+    struct file *file = get_file_pointer(fd_table, fd);
+
+    // check if file is open (maybe function in file-descriptor.c) return -1 if not
 
     if (!can_write_to_file(file)) { // justice for matthew
       // f->eax = -1;
@@ -386,8 +436,10 @@ In order to make the test suite pass, you need to print out the
   name and exit code respectively subsitute %s and %d.
 */
 void sys_exit(int status) {
+  //f->eax = status;
   printf("%s: exit(%d)", thread_current()->pcb->process_name, status);
-  return;
+  //return;
+  process_exit();
 }
 
 
