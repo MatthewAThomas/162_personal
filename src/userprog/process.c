@@ -253,22 +253,22 @@ static void start_process(void* file_name_) {
 
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
-  if (!success && fd_table_success) {
-    struct fd_table *fd_table_to_free = t->pcb->fd_table;
-    // Free file descriptor list
-    // if (&fd_table_to_free->fds) free(&fd_table_to_free -> fds); // ADDED; actually just commented out
-    // Free file descriptor table
-    free(t->pcb->fd_table);
-  }
-
-  /* Handle failure with succesful PCB malloc. Must free the PCB */
-  if (!success && pcb_success) {
-    // Avoid race where PCB is freed before t->pcb is set to NULL
-    // If this happens, then an unfortuantely timed timer interrupt
-    // can try to activate the pagedir, but it is now freed memory
-    struct process* pcb_to_free = t->pcb;
-    t->pcb = NULL;
-    free(pcb_to_free);
+  if (!success) {
+    if (fd_table_success) {
+      free_table(t->pcb->fd_table);
+    }
+    if (shared_data_success) {
+      free(new_shared_data);
+    }
+    if (pcb_success) {
+      // Avoid race where PCB is freed before t->pcb is set to NULL
+      // If this happens, then an unfortuantely timed timer interrupt
+      // can try to activate the pagedir, but it is now freed memory
+      struct process* pcb_to_free = t->pcb;
+      t->pcb = NULL;
+      free(pcb_to_free);
+    }
+    
   }
 
   /* Clean up. Exit on failure or jump to userspace */

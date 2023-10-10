@@ -19,9 +19,8 @@
     Works by iterating from beginning to end to find
 */
 struct fd* find(struct fd_table* fd_table, int fd) {
-    //struct fd* file_desc;
-    struct list_elem* e;
-    for (e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
+    //struct fd* file_desc
+    for (struct list_elem* e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
         struct fd* file_desc = list_entry(e, struct fd, list_fd);
         if (file_desc != NULL && file_desc->val == fd) {
             return file_desc;

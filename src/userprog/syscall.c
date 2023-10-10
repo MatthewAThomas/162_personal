@@ -39,10 +39,16 @@ void check_valid_ptr(void *ptr) {
     process_exit();
   }
   uint32_t* pd = cur->pcb->pagedir;
-  if (pagedir_get_page(pd, ptr) == NULL) { // is unmapped in current directory
+  void* page = pagedir_get_page(pd, ptr);
+  if (page == NULL) { // is unmapped in current directory
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
    }
+  if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {
+    printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
+    process_exit();
+    // check that beginning and end are valid
+  }
   // check if on boundary with pde_get_pt(uint32_t pde)
   // pg_no(const void* va)
   // if (pg_no(ptr) != pg_round_up(ptr)) {
@@ -393,7 +399,8 @@ void sys_close(int fd) {
   if (file_desc == NULL) {
     sys_exit(-1);
   }
-  if (remove(fd_table, fd) == -1) {
+  int removal_status = remove(fd_table, fd);
+  if (removal_status == -1) {
     sys_exit(-1);
   }
 }
@@ -438,6 +445,7 @@ void sys_exit(int status) {
   //f->eax = status;
   printf("%s: exit(%d)", thread_current()->pcb->process_name, status);
   //return;
+  // free the pcb here ? or in process_exit
   process_exit();
 }
 
