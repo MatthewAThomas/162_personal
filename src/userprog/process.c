@@ -53,6 +53,11 @@ void userprog_init(void) {
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    process id, or TID_ERROR if the thread cannot be created. */
+struct start_cmd {
+  char* file_name;
+  struct semaphore process_sema;
+};
+
 pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
@@ -508,7 +513,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     goto done;
 
   /* Start address. */
-   *esp -= 12; // added TODO:
+  // *esp -= 12; // added TODO:
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
