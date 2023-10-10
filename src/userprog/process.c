@@ -54,6 +54,11 @@ void userprog_init(void) {
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    process id, or TID_ERROR if the thread cannot be created. */
+struct start_cmd {
+  char* file_name;
+  struct semaphore process_sema;
+};
+
 pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
@@ -74,9 +79,12 @@ pid_t process_execute(const char* file_name) {
 
   // use load sema to signal it is complete
   // but it is not initialized yet.
+  struct start_cmd start_cmd;
+  start_cmd.file_name = fn_copy;
+  sema_init(&(start_cmd.process_sema), 0);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(token, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create(token, PRI_DEFAULT, start_process, &start_cmd);
 
   /* Down the process_sema; wait for child process to finish loading */
   //sema_down(&process_sema);
@@ -86,14 +94,16 @@ pid_t process_execute(const char* file_name) {
   
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-  
+  sema_down(&(start_cmd.process_sema));
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
-static void start_process(void* file_name_) {
-  char* file_name = (char*)file_name_;
+static void start_process(void* start_cmd) {
+  struct start_cmd* child_cmd = (struct start_cmd*) start_cmd;
+  //char* file_name = (char*)file_name_;
+  char* file_name = (char*)child_cmd->file_name;
 
   // dumplist &all_list shared_data elem
   // dumplist &all_list thread allelem
@@ -171,7 +181,7 @@ static void start_process(void* file_name_) {
     success = load(argv[0], &if_.eip, &if_.esp);
     
     /* After load, let the parent process know that it can stop blocking */
-    //sema_up(&process_sema);
+    sema_up(&child_cmd->process_sema);
   }
 
   // Tokenize(get each word) and store a pointer on stack and save the same pointer in argv array for later below
