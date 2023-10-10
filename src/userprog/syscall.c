@@ -497,6 +497,7 @@ wait must fail and return -1 immediately if any of the
     3) If pid did not call exit but was terminated by the kernel 
       (e.g. killed due to an exception), wait must return -1. 
 */
+
 int sys_wait(pid_t pid) {
   // struct process *pcb = thread_current() -> pcb;
   // struct list *children = &(pcb -> children);

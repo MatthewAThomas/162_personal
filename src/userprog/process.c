@@ -79,6 +79,7 @@ pid_t process_execute(const char* file_name) {
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
+  // todo: need to make sure that no file can edit the executable on disk + check if executable exists in file directory (see: filesys.c)
   // initialize 
   // char *token, *save_ptr;
   // token = strtok_r(file_name, " ", &save_ptr);
