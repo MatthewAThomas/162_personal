@@ -694,7 +694,7 @@ struct process *find_process(int pid) {
   return NULL;
 }
 
-/* Adds child process to struct list children of parent process*/
+/* Adds child process to struct list children of parent process. */
 void add_child(int child_pid) {
   struct process *parent_pcb = thread_current() -> pcb;
   struct process *child_pcb = find_process(child_pid);

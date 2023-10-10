@@ -74,7 +74,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
 
   if (args[0] == SYS_EXIT) {
-    f->eax = args[1];
+    // f->eax = args[1];
+    int c = args[1];
+    f->eax = c;
     // added
     //struct fd_table* fd_table = thread_current()->pcb->fd_table;
     // free all 
