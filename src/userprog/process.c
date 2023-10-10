@@ -508,6 +508,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     goto done;
 
   /* Start address. */
+   *esp -= 12; // added TODO:
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;

@@ -29,7 +29,6 @@ struct fd {
 
 // static or not static?
 struct fd* find(struct fd_table *table, int fd);
-struct fd* pop(struct fd_table *table, int fd);
 int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
 struct fd* add(struct fd_table *table, struct file* file);
 void init_table(struct fd_table* table);

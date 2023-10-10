@@ -31,7 +31,7 @@ void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "
 /* Check to see if ptr is outside of user memory. If so, exit*/
 void check_valid_ptr(void *ptr) {
   struct thread* cur = thread_current();
-  if (ptr == NULL || (uint32_t)ptr == 0 || !is_user_vaddr(ptr)) { 
+  if (ptr == NULL || (uint32_t)ptr == 0 || !is_user_vaddr(ptr) || (uint32_t)ptr >= 64*1024*1024) { 
     // ptr < 0 gets compile error (int and pointer comparison)
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();

@@ -32,16 +32,6 @@ struct fd* find(struct fd_table* fd_table, int fd) {
 
 
 /*
-    Removes the given FD from the FD table and returns the associated FD. Returns NULL if it does not exist. 
-*/
-struct fd* pop(struct fd_table* fd_table, int fd) {
-    struct fd* file_desc = find(fd_table, fd);
-    struct list_elem* e = &(file_desc->list_fd);
-    list_remove(e); // returns a value, but we don't want to keep the list_elem
-    return file_desc;
-}
-
-/*
     Removes the given FD from the FD table. Returns -1 if it does not exist. 
 */
 int remove(struct fd_table* fd_table, int fd) {
@@ -53,8 +43,8 @@ int remove(struct fd_table* fd_table, int fd) {
     struct list_elem* e = &(file_desc->list_fd);
     list_remove(e);
     // free 
-    // free(e);
-    // free(file_desc);
+    free(e);
+    free(file_desc);
     return 0;    
 }
 
@@ -112,5 +102,6 @@ void free_table(struct fd_table *fd_table) {
             free(file_desc);
         }
     } 
+    free(&(fd_table->fds));
     free(fd_table);
 }
