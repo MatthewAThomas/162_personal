@@ -27,7 +27,7 @@ static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-struct shared_data* find_shared_data(struct list children, int pid);
+//struct shared_data* find_shared_data(struct list children, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -75,8 +75,16 @@ pid_t process_execute(const char* file_name) {
   strlcpy(fn_copy, file_name, PGSIZE);
 
   // initialize 
-  char *token, *save_ptr;
-  token = strtok_r(file_name, " ", &save_ptr);
+  // char *token, *save_ptr;
+  // token = strtok_r(file_name, " ", &save_ptr);
+  // Find the position of the first space in the sentence
+  size_t i = 0;
+  while (file_name[i] != ' ' && file_name[i] != '\0') {
+    i++;
+  }
+  char* prog_name = malloc(sizeof(char)*(i+1));
+  strlcpy(prog_name, file_name, i+1);
+  prog_name[i+2] = '\0';
 
   // use load sema to signal it is complete
   // but it is not initialized yet.
@@ -86,7 +94,7 @@ pid_t process_execute(const char* file_name) {
   start_cmd.children = &(thread_current() -> pcb -> children);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(token, PRI_DEFAULT, start_process, &start_cmd);
+  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
 
   /* Down the process_sema; wait for child process to finish loading */
   //sema_down(&process_sema);
