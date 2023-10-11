@@ -44,7 +44,7 @@ void check_valid_ptr(void *ptr) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
    }
-  if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {
+  if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
     // check that beginning and end are valid
@@ -330,7 +330,7 @@ int sys_write(int fd, void* buffer, unsigned size) {
     if (!can_write_to_file(file)) { // justice for matthew
       // f->eax = -1;
       // need to exit kernel
-      return -1;
+      return -1; // change
     }
 
     int bytes_written = file_write(file, buffer, (off_t) size);
@@ -515,12 +515,12 @@ int sys_wait(pid_t pid) {
   struct process *pcb = thread_current() -> pcb;
   struct list *children = &(pcb -> children);
 
-  struct shared_data *child_data = find_shared_data(children, pid);
+  struct shared_data *child_data = find_shared_data(children, pid); // change; error starts here 
   if (!child_data) return -1;
   if (child_data -> waited_on) return -1;
   child_data -> waited_on = true;
 
-  sema_down(&(child_data -> load_sema));
+  sema_down(&(child_data -> wait_sema));
   int exit_status = child_data -> exit_code;
 
   return exit_status;

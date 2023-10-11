@@ -59,6 +59,7 @@ struct start_cmd {
   char* file_name;
   struct semaphore process_sema;
   struct list *children;
+  bool has_exec;
 };
 
 pid_t process_execute(const char* file_name) {
@@ -86,7 +87,7 @@ pid_t process_execute(const char* file_name) {
   }
   char* prog_name = malloc(sizeof(char)*(i+1));
   strlcpy(prog_name, file_name, i+1);
-  prog_name[i+2] = '\0';
+  //prog_name[i+2] = '\0'; // change
 
   // use load sema to signal it is complete
   // but it is not initialized yet.
@@ -94,6 +95,7 @@ pid_t process_execute(const char* file_name) {
   start_cmd.file_name = fn_copy;
   sema_init(&(start_cmd.process_sema), 0);
   start_cmd.children = &(thread_current() -> pcb -> children);
+  start_cmd.has_exec = thread_current()->pcb->has_exec;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
@@ -170,8 +172,9 @@ static void start_process(void* start_cmd) {
     // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
-    list_init(child_cmd -> children);
+    if(child_cmd->has_exec == false) list_init(child_cmd -> children);
     list_push_front(child_cmd -> children, &(new_shared_data -> elem));
+    new_pcb->has_exec = true;
   }
 
   // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/
@@ -281,7 +284,7 @@ static void start_process(void* start_cmd) {
       free_table(t->pcb->fd_table);
     }
     if (shared_data_success) {
-      free(new_shared_data);
+      free(new_shared_data); // change 
     }
     if (pcb_success) {
       // Avoid race where PCB is freed before t->pcb is set to NULL
@@ -357,13 +360,13 @@ void process_exit(void) {
      If this happens, then an unfortuantely timed timer interrupt
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
-  sema_up(&(cur->pcb->shared_data->load_sema));
+  sema_up(&(cur->pcb->shared_data->wait_sema));
 
   // free all 
   // ADDED
   free_table(pcb_to_free->fd_table);
   // free(pcb_to_free->main_thread);
-  pcb_to_free->shared_data->ref_count -= 1;
+  pcb_to_free->shared_data->ref_count -= 1; // change
   if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
     free(pcb_to_free->shared_data);
   }
@@ -706,44 +709,44 @@ void init_shared_data(struct shared_data* shared_data) {
   shared_data->ref_count = 1; // ADDED; changed to from 0 to 1
   shared_data->exit_code = 0; // not sure if it should be -1 or 0
   //shared_data->load_sema = process_sema;
-  sema_init(&(shared_data->load_sema), 0);
+  sema_init(&(shared_data->wait_sema), 0);
   // sema_init(&(shared_data->load_sema), 0); 
   shared_data -> waited_on = false; 
 }
 
-/* Takes a pid and finds the corresponding process struct */
-struct process *find_process(int pid) {
-  struct list_elem* e;
-  struct list *all_list_ptr = get_all_list();
-  for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
-    struct thread* t = list_entry(e, struct thread, allelem);
-    struct process *pcb = t -> pcb;
-    if (!pcb || !(pcb -> shared_data)) continue; 
-    if ((pcb -> shared_data -> pid) == pid) return pcb;
-  }
-  return NULL;
-}
+// /* Takes a pid and finds the corresponding process struct */
+// struct process *find_process(int pid) {
+//   struct list_elem* e;
+//   struct list *all_list_ptr = get_all_list();
+//   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
+//     struct thread* t = list_entry(e, struct thread, allelem);
+//     struct process *pcb = t -> pcb;
+//     if (!pcb || !(pcb -> shared_data)) continue; 
+//     if ((pcb -> shared_data -> pid) == pid) return pcb;
+//   }
+//   return NULL;
+// }
 
 struct shared_data *find_shared_data(struct list *children, int pid) {
   struct list_elem* e;
   struct list *all_list_ptr = children;
   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
-    struct shared_data* shared_data = list_entry(e, struct shared_data, elem);
+    struct shared_data* shared_data = list_entry(e, struct shared_data, elem); // c
     if ((shared_data -> pid) == pid) return shared_data;
   }
   return NULL;
 }
 
 /* Adds child process to struct list children of parent process. */
-void add_child(int child_pid) {
-  struct process *parent_pcb = thread_current() -> pcb;
-  struct process *child_pcb = find_process(child_pid);
-  if (!child_pcb) return; 
-  struct list *children = &(parent_pcb -> children);
-  struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
+// void add_child(int child_pid) {
+//   struct process *parent_pcb = thread_current() -> pcb;
+//   struct process *child_pcb = find_process(child_pid);
+//   if (!child_pcb) return; 
+//   struct list *children = &(parent_pcb -> children);
+//   struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
 
-  list_push_back(children, child_elem);
-}
+//   list_push_back(children, child_elem);
+// }
 
 /* Returns true if t is the main thread of the process p */
 bool is_main_thread(struct thread* t, struct process* p) { return p->main_thread == t; }
