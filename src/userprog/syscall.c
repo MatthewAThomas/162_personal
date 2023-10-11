@@ -43,7 +43,7 @@ void check_valid_ptr(void *ptr) {
   if (page == NULL) { // is unmapped in current directory
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
-   }
+  }
   if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
@@ -69,6 +69,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
 
   check_valid_ptr(f->esp);
+  check_valid_ptr((uint32_t*)f->esp + 1);
+  check_valid_ptr((uint32_t*)f->esp + 2);
+  check_valid_ptr((uint32_t*)f->esp + 3);
+  check_valid_ptr((uint32_t*)f->esp + 4); // copypasta
 
   /* Syscalls can take a maximum of 4 arguments, each of size 4 bytes (lib/usr/syscall.c)
      To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
@@ -84,6 +88,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     thread_current() -> pcb -> shared_data -> exit_code = args[1];
+    //thread_current() -> pcb -> has_called_exit = true;
     process_exit();
     // actually need to call process exit on all pcb^M
   } 
@@ -158,6 +163,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
     // return;
     // need sanitizing :)
+
     char* cmd_line = (char*)args[1];
     f -> eax = sys_exec(cmd_line);
   }
@@ -465,6 +471,7 @@ Runs the executable whose name is given in cmd_line, passing any
 // }
 pid_t sys_exec(char* cmd_line) { // const
   check_valid_ptr((void *) cmd_line);
+  check_valid_ptr((void *) cmd_line + 16);
 
   pid_t pid = process_execute(cmd_line);
   // block until load is complete
@@ -517,8 +524,15 @@ int sys_wait(pid_t pid) {
 
   struct shared_data *child_data = find_shared_data(children, pid); // change; error starts here 
   if (!child_data) return -1;
+
+  // Checks if parent has called wait on the child before
   if (child_data -> waited_on) return -1;
   child_data -> waited_on = true;
+
+  // if reference count is 1, then child has exited
+  if (child_data -> ref_count <= 1) {
+    return child_data -> exit_code;
+  }
 
   sema_down(&(child_data -> wait_sema));
   int exit_status = child_data -> exit_code;

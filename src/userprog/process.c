@@ -706,8 +706,8 @@ static bool install_page(void* upage, void* kpage, bool writable) {
 void init_shared_data(struct shared_data* shared_data) {
   shared_data->pid = thread_current()->tid;
   shared_data->load = false;
-  shared_data->ref_count = 1; // ADDED; changed to from 0 to 1
-  shared_data->exit_code = 0; // not sure if it should be -1 or 0
+  shared_data->ref_count = 2; // copypasta // ADDED; Matthew changed from 1 to 2
+  shared_data->exit_code = -1; // not sure if it should be -1 or 0
   //shared_data->load_sema = process_sema;
   sema_init(&(shared_data->wait_sema), 0);
   // sema_init(&(shared_data->load_sema), 0); 
