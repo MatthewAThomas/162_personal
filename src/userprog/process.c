@@ -86,7 +86,7 @@ pid_t process_execute(const char* file_name) {
   }
   char* prog_name = malloc(sizeof(char)*(i+1));
   strlcpy(prog_name, file_name, i+1);
-  prog_name[i+2] = '\0';
+  //prog_name[i+2] = '\0';
 
   // use load sema to signal it is complete
   // but it is not initialized yet.
