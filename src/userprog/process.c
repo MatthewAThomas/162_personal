@@ -89,6 +89,7 @@ pid_t process_execute(const char* file_name) {
   strlcpy(prog_name, file_name, i+1);
   //prog_name[i+2] = '\0'; // change
 
+
   // use load sema to signal it is complete
   // but it is not initialized yet.
   struct start_cmd start_cmd;
