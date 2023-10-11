@@ -48,7 +48,7 @@ void check_valid_ptr(void *ptr) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
     // check that beginning and end are valid
-  }
+
   // check if on boundary with pde_get_pt(uint32_t pde)
   // pg_no(const void* va)
   // if (pg_no(ptr) != pg_round_up(ptr)) {
