@@ -119,12 +119,14 @@ pid_t process_execute(const char* file_name) {
 
   struct shared_data *child_data = find_shared_data(&(thread_current() -> pcb -> children), tid);
   if (child_data == NULL) {
-    process_exit();
+    //process_exit();
+    return -1;
   }
   if (child_data -> load == false) {
     list_pop_front(start_cmd.children);
     free(child_data);
-    process_exit();
+    //process_exit();
+    return -1;
   } 
 
   return tid;
