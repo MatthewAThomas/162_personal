@@ -113,6 +113,20 @@ pid_t process_execute(const char* file_name) {
     // struct shared_data* child_shared_data = find_shared_data(tid);
     // sema_down(&(child_shared_data -> child_load_sema));
   sema_down(&(start_cmd.process_sema));
+  /* Removes the front element from LIST and returns it.
+   Undefined behavior if LIST is empty before removal. */
+
+
+  struct shared_data *child_data = find_shared_data(&(thread_current() -> pcb -> children), tid);
+  if (child_data == NULL) {
+    process_exit();
+  }
+  if (child_data -> load == false) {
+    list_pop_front(start_cmd.children);
+    free(child_data);
+    process_exit();
+  } 
+
   return tid;
 }
 
@@ -205,86 +219,73 @@ static void start_process(void* start_cmd) {
     if_.eflags = FLAG_IF | FLAG_MBS;
     //success = load(file_name, &if_.eip, &if_.esp);
     success = load(argv[0], &if_.eip, &if_.esp);
-    
-    /* After load, let the parent process know that it can stop blocking */
-    // sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
-    sema_up(&child_cmd->process_sema);
+
+    new_shared_data -> load = success;
   }
 
-  
+
+  if (success) {
+    char* argv_addr[argc];
+    for (int i = 0 ; i < argc ; i++) {
+      if_.esp = if_.esp - (strlen(argv[i]) + 1);
+      argv_addr[i] = (char *) if_.esp;
+      memcpy(if_.esp, argv[i], strlen(argv[i])+1);
+    }
+
+    // add padding to align
+    // number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1)
+    // each pointer is 4 byte since it is 32bit architecture
+    // Pintos doc example case : (7 * 4) % 16 = 12 thus the last digit of stack-align address should be c.
+    // int stack_align_offset = ((int)argv_addr - (argc + 3)*4) % 16;
+    // argv_addr = argv_addr - stack_align_offset;
+    // memcpy(argv_addr, 0, stack_align_offset);
+
+    // 0xbfffffec   stack-align       0         uint8_t
+    uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
+    if_.esp = if_.esp - stack_align_offset;
+    memset(if_.esp, 0, stack_align_offset);
+
+    // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
+    if_.esp = if_.esp - sizeof(char*); // decrement address
+    memset(if_.esp, argv[argc], sizeof(char*));
 
 
-  // Tokenize(get each word) and store a pointer on stack and save the same pointer in argv array for later below
-  // char* argv_addr = (char*) PHYS_BASE;
-  // for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-  //   argv_addr = argv_addr - (sizeof(token) + 1);
-  //   memcpy(argv_addr, token, strlen(token)+1);
-  //   argv[argc++] = argv_addr;
-  // }
+    // stack pointers(argv[i]) in reverse order
+    for (int i = 0 ; i < argc ; i++) {
+      if_.esp = if_.esp - sizeof(char*);
+      //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+      *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    }
 
-  // 0xbffffffc   argv[3][...]    bar\0       char[4]
-  // 0xbffffff8   argv[2][...]    foo\0       char[4]
-  // 0xbffffff5   argv[1][...]    -l\0        char[3]
-  // 0xbfffffed   argv[0][...]    /bin/ls\0   char[8]
-  //char* argv_addr = (char*) PHYS_BASE;
-
-  char* argv_addr[argc];
-  for (int i = 0 ; i < argc ; i++) {
-    if_.esp = if_.esp - (strlen(argv[i]) + 1);
-    argv_addr[i] = (char *) if_.esp;
-    memcpy(if_.esp, argv[i], strlen(argv[i])+1);
-  }
-
-  // add padding to align
-  // number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1)
-  // each pointer is 4 byte since it is 32bit architecture
-  // Pintos doc example case : (7 * 4) % 16 = 12 thus the last digit of stack-align address should be c.
-  // int stack_align_offset = ((int)argv_addr - (argc + 3)*4) % 16;
-  // argv_addr = argv_addr - stack_align_offset;
-  // memcpy(argv_addr, 0, stack_align_offset);
-
-  // 0xbfffffec   stack-align       0         uint8_t
-  uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
-  if_.esp = if_.esp - stack_align_offset;
-  memset(if_.esp, 0, stack_align_offset);
-
-  // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
-  if_.esp = if_.esp - sizeof(char*); // decrement address
-  memset(if_.esp, argv[argc], sizeof(char*));
-
-
-  // stack pointers(argv[i]) in reverse order
-  for (int i = 0 ; i < argc ; i++) {
+    // stack argv
+    //char *ptr = *if_.esp;
     if_.esp = if_.esp - sizeof(char*);
-    //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
-    *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    char *prev = (char *)(if_.esp + (uint32_t)4);
+    memcpy(if_.esp, &prev, sizeof(char*)); // memcpy?
+    //*(char**)if_.esp = *(char**)(if_.esp + 4);
+    
+    // stack argc
+    if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
+    memset(if_.esp, argc, sizeof(int));
+    *(int *)if_.esp = argc;
+
+    // stack fake address
+    if_.esp = if_.esp - sizeof(void*);
+    memset(if_.esp, '\0', sizeof(void*));
   }
-
-  // stack argv
-  //char *ptr = *if_.esp;
-  if_.esp = if_.esp - sizeof(char*);
-  char *prev = (char *)(if_.esp + (uint32_t)4);
-  memcpy(if_.esp, &prev, sizeof(char*)); // memcpy?
-  //*(char**)if_.esp = *(char**)(if_.esp + 4);
-  
-  // stack argc
-  if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
-  memset(if_.esp, argc, sizeof(int));
-  *(int *)if_.esp = argc;
-
-  // stack fake address
-  if_.esp = if_.esp - sizeof(void*);
-  memset(if_.esp, '\0', sizeof(void*));
-
 
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
   if (!success) {
+
     if (fd_table_success) {
       free_table(t->pcb->fd_table);
     }
     if (shared_data_success) {
-      free(new_shared_data); // change 
+    //   // pop new_shared_data from children
+    //   list_pop_front(child_cmd -> children);
+      new_shared_data -> ref_count -= 1;
+    //   free(new_shared_data);
     }
     if (pcb_success) {
       // Avoid race where PCB is freed before t->pcb is set to NULL
@@ -294,8 +295,11 @@ static void start_process(void* start_cmd) {
       t->pcb = NULL;
       free(pcb_to_free);
     }
-    
   }
+
+  /* After load, let the parent process know that it can stop blocking */
+  // sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
+  sema_up(&child_cmd->process_sema);
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
