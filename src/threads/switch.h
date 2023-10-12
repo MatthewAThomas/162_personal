@@ -34,6 +34,6 @@ void switch_thunk(void);
 /* Offsets used by switch.S. */
 #define SWITCH_CUR 128 //20
 #define SWITCH_NEXT 132 //24
-#define FPU_STATE_OFFSET 20
+#define FPU_STATE_OFFSET 16
 
 #endif /* threads/switch.h */

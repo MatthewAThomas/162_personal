@@ -32,8 +32,8 @@ struct intr_frame {
   uint16_t es, : 16;  /* Saved ES segment register. */
   uint16_t ds, : 16;  /* Saved DS segment register. */
 
-//   char fpu_state_buffer[108]; /* Starting here and above is where intr_entry starts 
-//                                  manually saving state of the current thread */
+  char fpu_state_buffer[108]; /* Starting here and above is where intr_entry starts 
+                                 manually saving state of the current thread */
 
   /* Pushed by intrNN_stub in intr-stubs.S. */
   uint32_t vec_no; /* Interrupt vector number. */
