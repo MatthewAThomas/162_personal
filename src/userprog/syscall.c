@@ -398,16 +398,20 @@ If the operation is unsuccessful, it can either exit with -1
 */
 void sys_close(int fd) {
   if (fd < 2) {
-    sys_exit(-1);
+    return -1;
   }
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* file_desc = find(fd_table, fd);
   if (file_desc == NULL) {
-    sys_exit(-1);
+    return -1;
+    //sys_exit(-1);
   }
+  // close file
+  file_close(file_desc->file);
   int removal_status = remove(fd_table, fd);
-  if (removal_status == -1) {
-    sys_exit(-1);
+  if (removal_status != 0) {
+    return -1;
+    //sys_exit(-1);
   }
 }
 
