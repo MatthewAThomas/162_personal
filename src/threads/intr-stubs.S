@@ -20,8 +20,9 @@ intr_entry:
    /* Allocate space for FPU state */
    subl $108, %esp
    /* Save FPU state */
-   # Save FPU state
-	#fsave (%esp)
+   # Save and initialize FPU state
+	fsave (%esp)
+   #fninit
 
 	/* Save caller's registers. */
 	pushl %ds
@@ -63,7 +64,7 @@ intr_exit:
 	popl %ds
 
    /* Restore FPU state */
-   #frstor (%esp)
+   frstor (%esp)
    /* Discard FPU state */
    addl $108, %esp
 

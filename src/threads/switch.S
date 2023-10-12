@@ -27,8 +27,8 @@ switch_threads:
 	# Allocate space for FPU state
 	subl $108, %esp
 	# Save FPU state and initialize FPU for next thread
-	#fsave FPU_STATE_OFFSET(%esp)
-    #fninit
+	fsave (%esp)
+    fninit
 
 	pushl %ebx
 	pushl %ebp
@@ -54,8 +54,7 @@ switch_threads:
 	popl %ebx
 
 	# Save FPU state and initialize FPU for next thread
-	#frstor FPU_STATE_OFFSET(%esp)
-    #fninit
+	frstor (%esp)
 
 	# Disregard FPU state
 	addl $108, %esp
