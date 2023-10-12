@@ -4,7 +4,6 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
-#include "file-descriptor.h"
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
 #include "threads/vaddr.h" 
@@ -15,6 +14,8 @@
 #include "threads/pte.h"
 #include "userprog/pagedir.h" // needed for pointer verification to unmapped things
 #include "threads/malloc.h"
+// #include "userprog/file-descriptor.h"
+#include "lib/float.h"
 //Added 
 //#include "file-descriptor.h" 
 //#include "userprog/process.h"
@@ -28,34 +29,17 @@ void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "
   /* printf("System call number: %d\n", args[0]); */
   /* Check to see if ptr is outside of user memory. If so, exit*/
 void check_valid_ptr(void *ptr) {
-  // if (!is_user_vaddr(ptr) || ptr == NULL || (uint32_t)ptr == 0) { // ptr < 0 gets compile error (int and pointer comparison)
-  //   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
-  //   process_exit();
-  // }
   struct thread* cur = thread_current();
-  if (ptr == NULL || (uint32_t)ptr == 0 || is_kernel_vaddr(ptr)) { // || (uint32_t)ptr >= 64*1024*1024
-    // ptr < 0 gets compile error (int and pointer comparison)
+  if (ptr == NULL || (uint32_t)ptr == 0 || is_kernel_vaddr(ptr) || is_kernel_vaddr(ptr + 1)) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
   }
   uint32_t* pd = cur->pcb->pagedir;
   void* page = pagedir_get_page(pd, ptr);
-  if (page == NULL) { // is unmapped in current directory
+  if (page == NULL) { 
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
   }
-  // if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
-  if (is_kernel_vaddr(ptr + 1)) {
-    printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
-    process_exit();
-    // check that beginning and end are valid
-
-  // check if on boundary with pde_get_pt(uint32_t pde)
-  // pg_no(const void* va)
-  // if (pg_no(ptr) != pg_round_up(ptr)) {
-  //   printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
-  //   process_exit();
-  // }
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {

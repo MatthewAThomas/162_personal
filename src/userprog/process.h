@@ -3,7 +3,7 @@
 
 #include "threads/thread.h"
 #include <stdint.h>
-#include "userprog/file-descriptor.h" // added 
+// #include "userprog/file-descriptor.h" // added 
 
 // At most 8MB can be allocated to the stack
 // These defines will be used in Project 2: Multithreading
@@ -80,6 +80,29 @@ tid_t pthread_join(tid_t);
 void pthread_exit(void);
 void pthread_exit_main(void);
 //struct process *find_process(int pid);
+
+
+
+/// File descriptor
+
+struct fd_table {
+  struct list fds;
+  int next_unused_fd;
+};
+
+struct fd {
+    struct list_elem list_fd;
+    int val; 
+    struct file* file; 
+};
+
+struct fd* find(struct fd_table *table, int fd);
+int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
+struct fd* add(struct fd_table *table, struct file* file);
+void init_table(struct fd_table* table);
+struct file* get_file_pointer(struct fd_table* fd_table, int fd);
+
+void free_table(struct fd_table *fd_table); // ADDED
 
 
 #endif /* userprog/process.h */
