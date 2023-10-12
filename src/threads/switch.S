@@ -23,6 +23,13 @@ switch_threads:
 	#
 	# This stack frame must match the one set up by thread_create()
 	# in size.
+
+	# Allocate space for FPU state
+	subl $108, %esp
+	# Save FPU state and initialize FPU for next thread
+	fnsave (%esp)
+    fninit
+
 	pushl %ebx
 	pushl %ebp
 	pushl %esi
@@ -45,6 +52,12 @@ switch_threads:
 	popl %esi
 	popl %ebp
 	popl %ebx
+
+	# Save FPU state and initialize FPU for next thread
+	frstor (%esp)
+
+	# Disregard FPU state
+	addl $108, %esp
         ret
 .endfunc
 

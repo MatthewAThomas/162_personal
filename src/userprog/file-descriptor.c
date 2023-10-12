@@ -45,7 +45,7 @@ int remove(struct fd_table* fd_table, int fd) {
     
     list_remove(e);
 
-    free(file_desc->file);
+    //free(file_desc->file);
     free(file_desc);
     return 0;
     // END ADD

@@ -35,6 +35,7 @@ struct process {
   struct semaphore list_sema;  
   struct shared_data* shared_data;
   bool has_exec;
+  //bool has_called_exit = false;
 };
 
 // parent process list - visibilty to sharea data's of its own child

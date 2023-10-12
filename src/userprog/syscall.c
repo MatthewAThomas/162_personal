@@ -43,8 +43,9 @@ void check_valid_ptr(void *ptr) {
   if (page == NULL) { // is unmapped in current directory
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
-   }
-  if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
+  }
+  // if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
+  if (is_kernel_vaddr(ptr + 1)) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
     // check that beginning and end are valid
@@ -69,6 +70,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
 
   check_valid_ptr(f->esp);
+  check_valid_ptr((uint32_t*)f->esp + 1);
+  check_valid_ptr((uint32_t*)f->esp + 2);
+  check_valid_ptr((uint32_t*)f->esp + 3);
+  check_valid_ptr((uint32_t*)f->esp + 4); // copypasta
 
   /* Syscalls can take a maximum of 4 arguments, each of size 4 bytes (lib/usr/syscall.c)
      To be safe, we should terminate the program if f->esp is close enough to PHYS_BASE that
@@ -84,6 +89,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     thread_current() -> pcb -> shared_data -> exit_code = args[1];
+    //thread_current() -> pcb -> has_called_exit = true;
     process_exit();
     // actually need to call process exit on all pcb^M
   } 
@@ -110,7 +116,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
   else if (args[0] == SYS_READ) {
       // printf("System call number: %d\n", args[0]);
-      f->eax = sys_read(args[1], (void*)args[2], args[3]);
+    f->eax = sys_read(args[1], (void*)args[2], args[3]);
+
+    // struct fd* file_desc = find(thread_current()->pcb->fd_table, args[1]);
+    // if (file_desc == NULL) {
+    //   return -1;
+    // }
+    // //return (int)file_read(file_desc->file, buffer, (off_t)size);
+    // f->eax = file_read(file_desc->file, (void*)args[2], args[3]);
   }
   else if (args[0] == SYS_WRITE) {
       // printf("System call number: %d\n", args[0]);
@@ -123,7 +136,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // todo: add exit if f->eax = -1; (or exit from output of sys_write)
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
-
   else if (args[0] == SYS_SEEK) {
     // printf("System call number: %d\n", args[0]);
     sys_seek(args[1], args[2]);
@@ -136,10 +148,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("System call number: %d\n", args[0]);
     sys_close(args[1]);  
   }
-
-
-
-  
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
@@ -158,6 +166,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
     // return;
     // need sanitizing :)
+
     char* cmd_line = (char*)args[1];
     f -> eax = sys_exec(cmd_line);
   }
@@ -165,7 +174,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("System call number: %d\n", args[0]);
     int pid = args[1];
     f -> eax = sys_wait(pid);
+  } else if (args[0] == SYS_COMPUTE_E) {
+    int n = args[1];
+    int e = sys_sum_to_e(n);
+    f -> eax = e;
   }
+
   return;
 }
 
@@ -262,14 +276,20 @@ int sys_read(int fd, void* buffer, unsigned size) {
   else if (fd == 1 || fd < 0) {
     return -1;
   }
-  else {
-    struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
-    if (file_desc == NULL) {
-      return -1;
-    }
-    return (int)file_read(file_desc->file, buffer, (off_t)size);
-  }
   
+  struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+  if (file_desc == NULL) {
+    return -1;
+  }
+
+  // int total = file_read(file_desc->file, str, size);
+  // int x = total + 0;
+  // free(str);
+  char* str = (char*)buffer;
+  //int x = file_read_at(file_desc->file, str, size, 0);
+  int y = file_read(file_desc->file, str, size);
+  return y;
+
 }
 
 
@@ -308,7 +328,7 @@ int sys_write(int fd, void* buffer, unsigned size) {
     //     putbuf((const char*) buffer, (size_t) (size - total)); 
     //   } 
     // }
-    return size;
+    return size; // size?
   } 
   else if (fd == 0) {
     return -1;
@@ -392,16 +412,20 @@ If the operation is unsuccessful, it can either exit with -1
 */
 void sys_close(int fd) {
   if (fd < 2) {
-    sys_exit(-1);
+    return -1;
   }
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* file_desc = find(fd_table, fd);
   if (file_desc == NULL) {
-    sys_exit(-1);
+    return -1;
+    //sys_exit(-1); // 
   }
+  // close file
+  file_close(file_desc->file);
   int removal_status = remove(fd_table, fd);
-  if (removal_status == -1) {
-    sys_exit(-1);
+  if (removal_status != 0) {
+    return -1;
+    //sys_exit(-1);
   }
 }
 
@@ -465,6 +489,7 @@ Runs the executable whose name is given in cmd_line, passing any
 // }
 pid_t sys_exec(char* cmd_line) { // const
   check_valid_ptr((void *) cmd_line);
+  check_valid_ptr((void *) cmd_line + 16);
 
   pid_t pid = process_execute(cmd_line);
   // block until load is complete
@@ -517,8 +542,15 @@ int sys_wait(pid_t pid) {
 
   struct shared_data *child_data = find_shared_data(children, pid); // change; error starts here 
   if (!child_data) return -1;
+
+  // Checks if parent has called wait on the child before
   if (child_data -> waited_on) return -1;
   child_data -> waited_on = true;
+
+  // if reference count is 1, then child has exited
+  if (child_data -> ref_count <= 1) {
+    return child_data -> exit_code;
+  }
 
   sema_down(&(child_data -> wait_sema));
   int exit_status = child_data -> exit_code;
