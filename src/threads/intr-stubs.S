@@ -21,7 +21,7 @@ intr_entry:
    subl $108, %esp
    /* Save FPU state */
    # Save and initialize FPU state
-	fsave (%esp)
+	fnsave (%esp)
    #fninit
 
 	/* Save caller's registers. */
