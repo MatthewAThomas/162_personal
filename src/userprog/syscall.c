@@ -44,7 +44,8 @@ void check_valid_ptr(void *ptr) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
   }
-  if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
+  // if (is_kernel_vaddr((void*)((uint32_t)ptr + sizeof(*ptr)))) {// change 
+  if (is_kernel_vaddr(ptr + 1)) {
     printf("%s: exit(%d)\n", cur->pcb->process_name, -1);
     process_exit();
     // check that beginning and end are valid
@@ -270,23 +271,20 @@ int sys_read(int fd, void* buffer, unsigned size) {
   else if (fd == 1 || fd < 0) {
     return -1;
   }
-  else {
-    struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
-    if (file_desc == NULL) {
-      return -1;
-    }
-    // char* str = malloc(sizeof(char) * 500 + 1);
-    // //return (int)file_read(file_desc->file, buffer, (off_t)size);
-    // //int x = file_read_at(file_desc->file, str, size, 0);
-    // // "\"Amazing Electronic Fact: If you scuffed your feet long enough without\r\n touching anything, you would build up so(gdb) rry about u"...your\r\n finger would explode!  But this is nothing
-    //  // only 39 characters read instead of more
-
-    // int total = file_read(file_desc->file, str, size);
-    // int x = total + 0;
-    // free(str);
-    
-    return file_read(file_desc->file, buffer, size);
+  
+  struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+  if (file_desc == NULL) {
+    return -1;
   }
+
+  // int total = file_read(file_desc->file, str, size);
+  // int x = total + 0;
+  // free(str);
+  char* str = (char*)buffer;
+  //int x = file_read_at(file_desc->file, str, size, 0);
+  int y = file_read(file_desc->file, str, size);
+  return y;
+
 }
 
 
