@@ -115,7 +115,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
   else if (args[0] == SYS_READ) {
       // printf("System call number: %d\n", args[0]);
-      f->eax = sys_read(args[1], (void*)args[2], args[3]);
+    f->eax = sys_read(args[1], (void*)args[2], args[3]);
+
+    // struct fd* file_desc = find(thread_current()->pcb->fd_table, args[1]);
+    // if (file_desc == NULL) {
+    //   return -1;
+    // }
+    // //return (int)file_read(file_desc->file, buffer, (off_t)size);
+    // f->eax = file_read(file_desc->file, (void*)args[2], args[3]);
   }
   else if (args[0] == SYS_WRITE) {
       // printf("System call number: %d\n", args[0]);
@@ -128,7 +135,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // todo: add exit if f->eax = -1; (or exit from output of sys_write)
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
-
   else if (args[0] == SYS_SEEK) {
     // printf("System call number: %d\n", args[0]);
     sys_seek(args[1], args[2]);
@@ -141,10 +147,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("System call number: %d\n", args[0]);
     sys_close(args[1]);  
   }
-
-
-
-  
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
       // printf("System call number: %d\n", args[0]);
@@ -273,9 +275,18 @@ int sys_read(int fd, void* buffer, unsigned size) {
     if (file_desc == NULL) {
       return -1;
     }
-    return (int)file_read(file_desc->file, buffer, (off_t)size);
+    // char* str = malloc(sizeof(char) * 500 + 1);
+    // //return (int)file_read(file_desc->file, buffer, (off_t)size);
+    // //int x = file_read_at(file_desc->file, str, size, 0);
+    // // "\"Amazing Electronic Fact: If you scuffed your feet long enough without\r\n touching anything, you would build up so(gdb) rry about u"...your\r\n finger would explode!  But this is nothing
+    //  // only 39 characters read instead of more
+
+    // int total = file_read(file_desc->file, str, size);
+    // int x = total + 0;
+    // free(str);
+    
+    return file_read(file_desc->file, buffer, size);
   }
-  
 }
 
 
@@ -314,7 +325,7 @@ int sys_write(int fd, void* buffer, unsigned size) {
     //     putbuf((const char*) buffer, (size_t) (size - total)); 
     //   } 
     // }
-    return;
+    return size; // size?
   } 
   else if (fd == 0) {
     return -1;
@@ -404,7 +415,7 @@ void sys_close(int fd) {
   struct fd* file_desc = find(fd_table, fd);
   if (file_desc == NULL) {
     return -1;
-    //sys_exit(-1);
+    //sys_exit(-1); // 
   }
   // close file
   file_close(file_desc->file);
