@@ -9,7 +9,7 @@
 
 /* Flags in control register 0. */
 #define CR0_PE 0x00000001      /* Protection Enable. */
-#define CR0_EM 0x00000004      /* (Floating-point) Emulation. */
+#define CR0_EM 0x00000000      /* (Floating-point) Emulation. */
 #define CR0_PG 0x80000000      /* Paging. */
 #define CR0_WP 0x00010000      /* Write-Protect enable in kernel mode. */
 
@@ -31,6 +31,8 @@ start:
 
 # Set string instructions to go upward.
 	cld
+# Initialize FPU state
+    fninit
 
 #### Get memory size, via interrupt 15h function 88h (see [IntrList]),
 #### which returns AX = (kB of physical memory) - 1024.  This only

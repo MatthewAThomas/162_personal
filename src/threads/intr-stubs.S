@@ -17,6 +17,12 @@
 */
 .func intr_entry
 intr_entry:
+   /* Allocate space for FPU state */
+   #subl $108, %esp
+   /* Save FPU state */
+   # Save FPU state
+	#fsave (%esp)
+
 	/* Save caller's registers. */
 	pushl %ds
 	pushl %es
@@ -55,6 +61,11 @@ intr_exit:
 	popl %fs
 	popl %es
 	popl %ds
+
+   /* Restore FPU state */
+   #frstor (%esp)
+   /* Discard FPU state */
+   #addl $108, %esp
 
         /* Discard `struct intr_frame' vec_no, error_code,
            frame_pointer members. */
