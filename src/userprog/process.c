@@ -229,6 +229,17 @@ static void start_process(void* start_cmd) {
     new_shared_data -> load = success;
   }
 
+  /* Save FPU state for first Pintos process */
+  volatile char temp_buffer[108];
+  asm volatile("fnsave (%0)" :: "g"(temp_buffer));
+  
+  /* Initialize FPU state for new process */
+  asm volatile("fninit");
+  asm volatile("fnsave (%0)" :: "g"(&(if_.fpu_state_buffer)));
+  
+  /* Restor FPU state for first Pintos process */
+  asm volatile("frstor (%0)" :: "g"(temp_buffer));
+
 
   if (success) {
     char* argv_addr[argc];
