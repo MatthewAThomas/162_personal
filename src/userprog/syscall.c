@@ -171,7 +171,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("System call number: %d\n", args[0]);
     int pid = args[1];
     f -> eax = sys_wait(pid);
+  } else if (args[0] == SYS_COMPUTE_E) {
+    int n = args[1];
+    int e = sys_sum_to_e(n);
+    f -> eax = e;
   }
+
   return;
 }
 
