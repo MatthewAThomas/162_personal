@@ -211,6 +211,17 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Add to run queue. */
   thread_unblock(t);
 
+   /* Save FPU state for first Pintos process */
+  volatile char temp_buffer[108];
+  asm volatile("fnsave (%0)" :: "g"(temp_buffer));
+  
+  /* Initialize FPU state for new process */
+  asm volatile("fninit");
+  asm volatile("fnsave (%0)" :: "g"(&(sf -> fpu_state_buffer)));
+  
+  /* Restor FPU state for first Pintos process */
+  asm volatile("frstor (%0)" :: "g"(temp_buffer));
+
   return tid;
 }
 
