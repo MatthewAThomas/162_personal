@@ -4,8 +4,6 @@
 #include "threads/malloc.h"
 #include <stdbool.h>
 
-// test
-
 /* An open file. */
 struct file {
   struct inode* inode; /* File's inode. */
@@ -94,7 +92,6 @@ off_t file_write_at(struct file* file, const void* buffer, off_t size, off_t fil
   return inode_write_at(file->inode, buffer, size, file_ofs);
 }
 
-// added
 /* Returns True if the file can be written to, False if not. */
 bool can_write_to_file(struct file* file) {
   return !(file->deny_write);
