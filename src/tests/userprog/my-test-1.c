@@ -1,12 +1,10 @@
-/* Tests reading from stdin. */
+/* This program attempts to read memory at an address that is not mapped.
+   This should terminate the process with a -1 exit code. */
 
 #include "tests/lib.h"
 #include "tests/main.h"
 
-void
-test_main (void) 
-{
-  char msg[64];
-  size_t msglen = read(0, msg, 64);
-  write(1, msg, msglen);
+void test_main(void) {
+  msg("Congratulations - you dereferenced NULL: %d", *(volatile int*)NULL);
+  fail("should have exited with -1");
 }

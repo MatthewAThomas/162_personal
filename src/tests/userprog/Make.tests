@@ -128,7 +128,6 @@ tests/userprog/fp-asm-helper_SRC = tests/userprog/fp-asm-helper.c
 tests/userprog/fp-syscall_SRC = tests/userprog/fp-syscall.c tests/main.c
 tests/userprog/fp-kernel-e_SRC = tests/userprog/fp-kernel-e.c tests/main.c
 tests/userprog/fp-init_SRC = tests/userprog/fp-init.c tests/main.c
-
 tests/userprog/my-test-1_SRC = tests/userprog/my-test-1.c tests/main.c
 
 $(foreach prog,$(tests/userprog_PROGS),$(eval $(prog)_SRC += tests/lib.c))
@@ -141,8 +140,6 @@ tests/userprog/args-multiple_ARGS = some arguments for you!
 tests/userprog/args-many_ARGS = a b c d e f g h i j k l m n o p q r s t u v
 tests/userprog/args-dbl-space_ARGS = two  spaces!
 tests/userprog/multi-recurse_ARGS = 15
-
-tests/userprog/my-test-1_INPUT = ../../tests/userprog/my-test-1.input
 
 tests/userprog/open-normal_PUTFILES += tests/userprog/sample.txt
 tests/userprog/open-boundary_PUTFILES += tests/userprog/sample.txt
@@ -173,3 +170,4 @@ tests/userprog/rox-multichild_PUTFILES += tests/userprog/child-rox
 
 tests/userprog/fp-simul_PUTFILES += tests/userprog/compute-e
 tests/userprog/fp-asm_PUTFILES += tests/userprog/fp-asm-helper
+tests/userprog/my-test-2_PUTFILES += tests/userprog/sample2.txt
