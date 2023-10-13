@@ -35,6 +35,7 @@ struct process {
   struct semaphore list_sema;  
   struct shared_data* shared_data;
   bool has_exec;
+  struct file* cur_file;
   //bool has_called_exit = false;
 };
 

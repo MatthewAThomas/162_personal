@@ -386,6 +386,8 @@ void process_exit(void) {
   // free all 
   // ADDED
   free_table(pcb_to_free->fd_table);
+  file_allow_write(pcb_to_free->cur_file);
+  file_close(pcb_to_free->cur_file);
   // free(pcb_to_free->main_thread);
   pcb_to_free->shared_data->ref_count -= 1; // change
   if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
@@ -513,6 +515,9 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     goto done;
   }
 
+  file_deny_write(file);
+  t->pcb->cur_file = file;
+
   /* Read and verify executable header. */
   if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
       memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 ||
@@ -583,7 +588,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
 
 done:
   /* We arrive here whether the load is successful or not. */
-  file_close(file);
+  // file_close(file);
   return success;
 }
 
