@@ -69,7 +69,7 @@ pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  sema_init(&temporary, 0);
+  // sema_init(&temporary, 0);
   // Todo: need to prevent executable from being edited with file_deny_write
 
   // Make a copy of FILE_NAME.
@@ -103,33 +103,23 @@ pid_t process_execute(const char* file_name) {
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
-
-  /* Down the process_sema; wait for child process to finish loading */
-  //sema_down(&process_sema);
-  // find child
-  // struct shared_data* child_shared_data = find_shared_data(thread_current()->pcb->children, tid);
-  // fuck hmm..
   
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-    // tid is the child process pid
-    // need to find child's shared_data
-    // struct shared_data* child_shared_data = find_shared_data(tid);
-    // sema_down(&(child_shared_data -> child_load_sema));
+
+  /* Down the process_sema; wait for child process to finish loading */
   sema_down(&(start_cmd.process_sema));
+
   /* Removes the front element from LIST and returns it.
    Undefined behavior if LIST is empty before removal. */
-
-
   struct shared_data *child_data = find_shared_data(&(thread_current() -> pcb -> children), tid);
   if (child_data == NULL) {
-    //process_exit();
     return -1;
   }
+
   if (child_data -> load == false) {
     list_pop_front(start_cmd.children);
     free(child_data);
-    //process_exit();
     return -1;
   } 
 
@@ -321,7 +311,7 @@ static void start_process(void* start_cmd) {
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
   if (!success) {
-    sema_up(&temporary);
+    //sema_up(&temporary);
     thread_exit();
   }
 
@@ -345,8 +335,26 @@ static void start_process(void* start_cmd) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(pid_t child_pid UNUSED) {
-  sema_down(&temporary);
-  return 0;
+
+  struct process *pcb = thread_current() -> pcb;
+  struct list *children = &(pcb -> children);
+
+  struct shared_data *child_data = find_shared_data(children, child_pid); // change; error starts here 
+  if (!child_data) return -1;
+
+  // Checks if parent has called wait on the child before
+  if (child_data -> waited_on) return -1;
+  child_data -> waited_on = true;
+
+  // if reference count is 1, then child has exited
+  if (child_data -> ref_count <= 1) {
+    return child_data -> exit_code;
+  }
+
+  sema_down(&(child_data -> wait_sema));
+  int exit_status = child_data -> exit_code;
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -404,7 +412,7 @@ void process_exit(void) {
   // need to free shared data, fd table contents, etc.
   
 
-  sema_up(&temporary);
+  //sema_up(&temporary);
   thread_exit();
 }
 
@@ -875,14 +883,14 @@ int remove(struct fd_table* fd_table, int fd) {
     Adds the given FD to the FD table. Returns the FD.
 */
 struct fd* add(struct fd_table* fd_table, struct file* file) {
-    struct fd* file_descriptor = calloc(sizeof(struct fd), 1); 
-    struct list_elem* e = &(file_descriptor->list_fd);
-    file_descriptor->val = fd_table->next_unused_fd;
-    file_descriptor->file = file;
-    fd_table->next_unused_fd += 1;
-    list_push_back(&(fd_table->fds), e);
-    file_descriptor->list_fd = *e;
-    return file_descriptor;
+  struct fd* file_descriptor = calloc(sizeof(struct fd), 1); 
+  struct list_elem* e = &(file_descriptor->list_fd);
+  file_descriptor->val = fd_table->next_unused_fd;
+  file_descriptor->file = file;
+  fd_table->next_unused_fd += 1;
+  list_push_back(&(fd_table->fds), e);
+  file_descriptor->list_fd = *e;
+  return file_descriptor;
 }
 
 /* 

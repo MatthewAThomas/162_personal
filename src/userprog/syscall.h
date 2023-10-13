@@ -15,9 +15,11 @@ void syscall_init(void);
 // changed from removed const qualifiers to allow for typecasting; C allows for casting only non const -> const; see project spec for specifications
 bool sys_create(char* file, unsigned initial_size); // const
 bool sys_remove(char* file); // const
+// void sys_open(struct intr_frame* f UNUSED, char* name);
 int sys_open(char* name);
 int sys_filesize(int fd);
 int sys_read(int fd, void* buffer, unsigned size); // const
+// int sys_read(int fd, void* buffer, unsigned size); // const
 int sys_write(int fd, void* buffer, unsigned size); // const
 void sys_seek(int fd, unsigned position);
 unsigned sys_tell(int fd);

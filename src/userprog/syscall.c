@@ -21,10 +21,16 @@
 //#include "userprog/process.h"
 //#include "threads/vaddr.h"
 //#include "lib/kernel/console.c" // putbuf not declared in console.h; should we change console.h ?
+// static void sys_open (struct intr_frame *f UNUSED, char* name);
+// static void sys_read (struct intr_frame *f UNUSED, int fd, void* buffer, unsigned size);
+struct lock global_lock;
 
 static void syscall_handler(struct intr_frame*);
 
-void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
+void syscall_init(void) { 
+  intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
+  lock_init(&global_lock);
+}
 
   /* printf("System call number: %d\n", args[0]); */
   /* Check to see if ptr is outside of user memory. If so, exit*/
@@ -92,16 +98,22 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
   else if (args[0] == SYS_OPEN) {
       // printf("System call number: %d\n", args[0]);
-      f->eax = sys_open((void*)args[1]);
+    lock_acquire(&global_lock);
+    f->eax = sys_open((void*)args[1]);
+    lock_release(&global_lock);
   }
   else if (args[0] == SYS_FILESIZE) {
       // printf("System call number: %d\n", args[0]);
+      lock_acquire(&global_lock);
       f->eax = sys_filesize(args[1]);
+      lock_release(&global_lock);
   }
   else if (args[0] == SYS_READ) {
       // printf("System call number: %d\n", args[0]);
+    // might slow down too much
+    lock_acquire(&global_lock);
     f->eax = sys_read(args[1], (void*)args[2], args[3]);
-
+    lock_release(&global_lock);
     // struct fd* file_desc = find(thread_current()->pcb->fd_table, args[1]);
     // if (file_desc == NULL) {
     //   return -1;
@@ -116,21 +128,30 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // args[2] : buffer
       // args[2] : size unsigned
       //f->eax = sys_write(args[1], (const void*)args[2], args[3]);
-      f->eax = sys_write(args[1], (void*)args[2], args[3]);
+    lock_acquire(&global_lock);
+    f->eax = sys_write(args[1], (void*)args[2], args[3]);
+    lock_release(&global_lock);
+
       // todo: add exit if f->eax = -1; (or exit from output of sys_write)
       //putbuf((const char*) args[2], (size_t) args[3]);
   }
   else if (args[0] == SYS_SEEK) {
     // printf("System call number: %d\n", args[0]);
+    lock_acquire(&global_lock);
     sys_seek(args[1], args[2]);
+    lock_release(&global_lock);
   }
   else if (args[0] == SYS_TELL) {
     // printf("System call number: %d\n", args[0]);^
+    lock_acquire(&global_lock);
     f->eax = sys_tell(args[1]);
+    lock_release(&global_lock);
   }
   else if (args[0] == SYS_CLOSE) {
     // printf("System call number: %d\n", args[0]);
+    lock_acquire(&global_lock);
     sys_close(args[1]);  
+    lock_release(&global_lock);
   }
   // Start of process syscalls
   else if (args[0] == SYS_PRACTICE) {
@@ -258,6 +279,7 @@ int sys_read(int fd, void* buffer, unsigned size) {
     return size;
   }
   else if (fd == 1 || fd < 0) {
+    // f->eax = -1;
     return -1;
   }
   
@@ -511,35 +533,23 @@ int sys_wait(pid_t pid) {
   // struct process *pcb = thread_current() -> pcb;
   // struct list *children = &(pcb -> children);
 
-  // /* Check if process is child of calling process */
-  // struct shared_data *child_data = find_shared_data(*children, pid);
-  // if (child_data == NULL) return -1;
+  // struct shared_data *child_data = find_shared_data(children, pid); // change; error starts here 
+  // if (!child_data) return -1;
 
-  // /* Wait for child process to exit */
+  // // Checks if parent has called wait on the child before
+  // if (child_data -> waited_on) return -1;
+  // child_data -> waited_on = true;
+
+  // // if reference count is 1, then child has exited
+  // if (child_data -> ref_count <= 1) {
+  //   return child_data -> exit_code;
+  // }
+
   // sema_down(&(child_data -> wait_sema));
-
   // int exit_status = child_data -> exit_code;
-  // if ((child_data -> ref_count) == 0) free(child_data);
 
-  struct process *pcb = thread_current() -> pcb;
-  struct list *children = &(pcb -> children);
-
-  struct shared_data *child_data = find_shared_data(children, pid); // change; error starts here 
-  if (!child_data) return -1;
-
-  // Checks if parent has called wait on the child before
-  if (child_data -> waited_on) return -1;
-  child_data -> waited_on = true;
-
-  // if reference count is 1, then child has exited
-  if (child_data -> ref_count <= 1) {
-    return child_data -> exit_code;
-  }
-
-  sema_down(&(child_data -> wait_sema));
-  int exit_status = child_data -> exit_code;
-
-  return exit_status;
+  // return exit_status;
+  return process_wait(pid);
 }
 
 
