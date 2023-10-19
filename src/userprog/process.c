@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <list.h> 
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -18,19 +21,13 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-//#include "userprog/file-descriptor.h" 
-#include "userprog/process.h"
-#include <stdint.h>
-#include <list.h> 
-#include "filesys/file.h"
+
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-
-//struct shared_data* find_shared_data(struct list children, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -65,36 +62,26 @@ struct start_cmd {
   bool has_exec;
 };
 
+
 pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  // sema_init(&temporary, 0);
-  // Todo: need to prevent executable from being edited with file_deny_write
-
-  // Make a copy of FILE_NAME.
-  //   Otherwise there's a race between the caller and load().
+  /*  Make a copy of FILE_NAME.
+      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  // todo: need to make sure that no file can edit the executable on disk + check if executable exists in file directory (see: filesys.c)
-  // initialize 
-  // char *token, *save_ptr;
-  // token = strtok_r(file_name, " ", &save_ptr);
-  // Find the position of the first space in the sentence
+  /* Find the position of the first space in the sentence. */
   size_t i = 0;
   while (file_name[i] != ' ' && file_name[i] != '\0') {
     i++;
   }
   char* prog_name = malloc(sizeof(char)*(i+1));
   strlcpy(prog_name, file_name, i+1);
-  //prog_name[i+2] = '\0'; // change
-
-
-  // use load sema to signal it is complete
-  // but it is not initialized yet.
+  
   struct start_cmd start_cmd;
   start_cmd.file_name = fn_copy;
   sema_init(&(start_cmd.process_sema), 0);
@@ -107,7 +94,7 @@ pid_t process_execute(const char* file_name) {
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
 
-  /* Down the process_sema; wait for child process to finish loading */
+  /* Down the process_sema; wait for child process to finish loading. */
   sema_down(&(start_cmd.process_sema));
 
   /* Removes the front element from LIST and returns it.
@@ -129,24 +116,16 @@ pid_t process_execute(const char* file_name) {
 /* A thread function that loads a user process and starts it
    running. */
 static void start_process(void* start_cmd) {
-  // char* file_name = (char*)file_name_;
   struct start_cmd* child_cmd = (struct start_cmd*) start_cmd;
   char* file_name = (char*)child_cmd->file_name;
-
-  // dumplist &all_list shared_data elem
-  // dumplist &all_list thread allelem
-  struct thread* t = thread_current(); // use tid as pid
+  struct thread* t = thread_current();
   struct intr_frame if_;
   bool success, pcb_success;
   bool fd_table_success;
   bool shared_data_success;
 
-  /* Allocate process control block */
-  // struct process* new_pcb = malloc(sizeof(struct process));
-  // struct fd_table *new_fd_table = malloc(sizeof(struct fd_table));
-  // struct shared_data *new_shared_data = malloc(sizeof(struct shared_data));
-  struct process* new_pcb = calloc(sizeof(struct process), 1); // TODO: probably need to do calloc here too
-  //Allocates file descriptor table on the heap to avoid stack overflow
+  /* Allocate process control block. */
+  struct process* new_pcb = calloc(sizeof(struct process), 1);
   struct fd_table *new_fd_table = calloc(sizeof(struct fd_table), 1);
   struct shared_data *new_shared_data = calloc(sizeof(struct shared_data), 1);
 
@@ -156,30 +135,20 @@ static void start_process(void* start_cmd) {
 
   success = pcb_success && fd_table_success && shared_data_success;
  
-  /* Initialize process control block */
+  /* Initialize process control block. */
   if (success) {
-    // Ensure that timer_interrupt() -> schedule() -> process_activate()
-    // does not try to activate our uninitialized pagedir
     new_pcb->pagedir = NULL;
     t->pcb = new_pcb;
 
-    //Initialize child list and semaphore
+    /* Initialize child list, semaphore, shared data, and FD table. */
     list_init(&(new_pcb -> children));
     sema_init(&(new_pcb -> list_sema), 0);
-
-    // Initialize fd_table
     init_table(new_fd_table);
-
-    // Initialize shared_data;
     init_shared_data(new_shared_data);    
   
-    // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
-
-    // Set new_shared_data as the shared_data of new_pcb
     new_pcb -> shared_data = new_shared_data;
 
-    // Continue initializing the PCB as normal
     t->pcb->main_thread = t;
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
     if(child_cmd->has_exec == false) list_init(child_cmd -> children);
@@ -187,13 +156,11 @@ static void start_process(void* start_cmd) {
     new_pcb->has_exec = true;
   }
 
-  // https://cs162.org/static/proj/pintos-docs/docs/userprog/program-startup/
   char *token, *save_ptr;
   int argc = 0;
   char* temp_cmd_line = calloc(strlen(file_name) + 1, 1);
   strlcpy(temp_cmd_line, file_name, strlen(file_name)+1);
 
-  // temp_cmd_line "stack-align-3 ab" -> "stack-align"
   for (token = strtok_r(temp_cmd_line, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
     argc = argc + 1;
   }
@@ -213,21 +180,19 @@ static void start_process(void* start_cmd) {
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    //success = load(file_name, &if_.eip, &if_.esp);
     success = load(argv[0], &if_.eip, &if_.esp);
-
     new_shared_data -> load = success;
   }
 
-  /* Save FPU state for first Pintos process */
+  /* Save FPU state for first Pintos process. */
   volatile char temp_buffer[108];
   asm volatile("fnsave (%0)" :: "g"(temp_buffer));
   
-  /* Initialize FPU state for new process */
+  /* Initialize FPU state for new process. */
   asm volatile("fninit");
   asm volatile("fnsave (%0)" :: "g"(&(if_.fpu_state_buffer)));
   
-  /* Restor FPU state for first Pintos process */
+  /* Restor FPU state for first Pintos process. */
   asm volatile("frstor (%0)" :: "g"(temp_buffer));
 
 
@@ -239,25 +204,20 @@ static void start_process(void* start_cmd) {
       memcpy(if_.esp, argv[i], strlen(argv[i])+1);
     }
 
-    // add padding to align
-    // number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1)
-    // each pointer is 4 byte since it is 32bit architecture
-    // Pintos doc example case : (7 * 4) % 16 = 12 thus the last digit of stack-align address should be c.
-    // int stack_align_offset = ((int)argv_addr - (argc + 3)*4) % 16;
-    // argv_addr = argv_addr - stack_align_offset;
-    // memcpy(argv_addr, 0, stack_align_offset);
-
-    // 0xbfffffec   stack-align       0         uint8_t
+    /* 
+      Add padding to align the stack. 
+      The number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1).
+      Each pointer is 4 bytes since it is 32bit architecture. */
     uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
     if_.esp = if_.esp - stack_align_offset;
     memset(if_.esp, 0, stack_align_offset);
 
-    // add null pointer sentinel ex) if argc = 4 make sure you store argv[5] as null pointer and the size should be char pointer. 4bytes
-    if_.esp = if_.esp - sizeof(char*); // decrement address
+    /* Add null pointer sentinel. */
+    if_.esp = if_.esp - sizeof(char*);
     memset(if_.esp, argv[argc], sizeof(char*));
 
 
-    // stack pointers(argv[i]) in reverse order
+    /* Stack pointers(argv[i]) in reverse order. */
     for (int i = 0 ; i < argc ; i++) {
       if_.esp = if_.esp - sizeof(char*);
       //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
@@ -289,15 +249,9 @@ static void start_process(void* start_cmd) {
       free_table(t->pcb->fd_table);
     }
     if (shared_data_success) {
-    //   // pop new_shared_data from children
-    //   list_pop_front(child_cmd -> children);
       new_shared_data -> ref_count -= 1;
-    //   free(new_shared_data);
     }
     if (pcb_success) {
-      // Avoid race where PCB is freed before t->pcb is set to NULL
-      // If this happens, then an unfortuantely timed timer interrupt
-      // can try to activate the pagedir, but it is now freed memory
       struct process* pcb_to_free = t->pcb;
       t->pcb = NULL;
       free(pcb_to_free);
@@ -305,7 +259,6 @@ static void start_process(void* start_cmd) {
   }
 
   /* After load, let the parent process know that it can stop blocking */
-  // sema_up(&(thread_current() -> pcb -> shared_data -> load_sema));
   sema_up(&child_cmd->process_sema);
 
   /* Clean up. Exit on failure or jump to userspace */
@@ -342,11 +295,11 @@ int process_wait(pid_t child_pid UNUSED) {
   struct shared_data *child_data = find_shared_data(children, child_pid); // change; error starts here 
   if (!child_data) return -1;
 
-  // Checks if parent has called wait on the child before
+  /*Checks if parent has called wait on the child before */
   if (child_data -> waited_on) return -1;
   child_data -> waited_on = true;
 
-  // if reference count is 1, then child has exited
+  /* If reference count is 1, then child has exited */
   if (child_data -> ref_count <= 1) {
     return child_data -> exit_code;
   }
@@ -391,28 +344,16 @@ void process_exit(void) {
   struct process* pcb_to_free = cur->pcb;
   sema_up(&(cur->pcb->shared_data->wait_sema));
 
-  // free all 
-  // ADDED
   free_table(pcb_to_free->fd_table);
   file_allow_write(pcb_to_free->cur_file);
   file_close(pcb_to_free->cur_file);
-  // free(pcb_to_free->main_thread);
   pcb_to_free->shared_data->ref_count -= 1; // change
   if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
     free(pcb_to_free->shared_data);
   }
 
-  // for sake of not having memory leaks for now, freeing shared data without paying attention to children processes
-  // END ADDED
   cur->pcb = NULL;
   free(pcb_to_free);
-
-  //struct process* new_pcb = calloc(sizeof(struct process), 1); // TODO: probably need to do calloc here too
-  //Allocates file descriptor table on the heap to avoid stack overflow
-  // need to free shared data, fd table contents, etc.
-  
-
-  //sema_up(&temporary);
   thread_exit();
 }
 
@@ -589,14 +530,12 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     goto done;
 
   /* Start address. */
-  // *esp -= 12; // added TODO:
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
 
 done:
   /* We arrive here whether the load is successful or not. */
-  // file_close(file);
   return success;
 }
 
@@ -740,26 +679,11 @@ static bool install_page(void* upage, void* kpage, bool writable) {
 void init_shared_data(struct shared_data* shared_data) {
   shared_data->pid = thread_current()->tid;
   shared_data->load = false;
-  shared_data->ref_count = 2; // copypasta // ADDED; Matthew changed from 1 to 2
-  shared_data->exit_code = -1; // not sure if it should be -1 or 0
-  //shared_data->load_sema = process_sema;
+  shared_data->ref_count = 2;
+  shared_data->exit_code = -1;
   sema_init(&(shared_data->wait_sema), 0);
-  // sema_init(&(shared_data->load_sema), 0); 
   shared_data -> waited_on = false; 
 }
-
-// /* Takes a pid and finds the corresponding process struct */
-// struct process *find_process(int pid) {
-//   struct list_elem* e;
-//   struct list *all_list_ptr = get_all_list();
-//   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
-//     struct thread* t = list_entry(e, struct thread, allelem);
-//     struct process *pcb = t -> pcb;
-//     if (!pcb || !(pcb -> shared_data)) continue; 
-//     if ((pcb -> shared_data -> pid) == pid) return pcb;
-//   }
-//   return NULL;
-// }
 
 struct shared_data *find_shared_data(struct list *children, int pid) {
   struct list_elem* e;
@@ -770,17 +694,6 @@ struct shared_data *find_shared_data(struct list *children, int pid) {
   }
   return NULL;
 }
-
-/* Adds child process to struct list children of parent process. */
-// void add_child(int child_pid) {
-//   struct process *parent_pcb = thread_current() -> pcb;
-//   struct process *child_pcb = find_process(child_pid);
-//   if (!child_pcb) return; 
-//   struct list *children = &(parent_pcb -> children);
-//   struct list_elem *child_elem = &(child_pcb -> shared_data -> elem);
-
-//   list_push_back(children, child_elem);
-// }
 
 /* Returns true if t is the main thread of the process p */
 bool is_main_thread(struct thread* t, struct process* p) { return p->main_thread == t; }
@@ -847,8 +760,6 @@ void pthread_exit(void) {}
    now, it does nothing. */
 void pthread_exit_main(void) {}
 
-
-// File descriptor
 /* 
     Looks for the FD list_elem with the FD number N. 
     Returns NULL if there is no list_elem with the FD number N. 
