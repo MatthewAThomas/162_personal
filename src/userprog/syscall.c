@@ -90,11 +90,15 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   // Start of File Syscall
   else if (args[0] == SYS_CREATE) {
     // printf("System call number: %d\n", args[0]);
+    lock_acquire(&global_lock);
     f->eax = sys_create((void*)args[1], args[2]);
+    lock_release(&global_lock);
   }
   else if (args[0] == SYS_REMOVE) {
       // printf("System call number: %d\n", args[0]);
+      lock_acquire(&global_lock);
       f->eax = sys_remove((void*)args[1]);
+      lock_release(&global_lock);
   }
   else if (args[0] == SYS_OPEN) {
       // printf("System call number: %d\n", args[0]);
@@ -161,6 +165,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   }
   else if (args[0] == SYS_HALT) {
       // printf("System call number: %d\n", args[0]);
+      sys_halt();
   }
   else if (args[0] == SYS_EXEC) {
     // printf("System call number: %d\n", args[0]);
@@ -452,9 +457,9 @@ Terminates Pintos by calling the shutdown_power_off
   because you lose some information about possible deadlock 
   situations, etc.
 */
-// void sys_halt(void) {
-//   return;
-// }
+void sys_halt(void) {
+  shutdown_power_off();
+}
 
 
 /* 
