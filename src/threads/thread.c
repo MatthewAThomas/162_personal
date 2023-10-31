@@ -111,6 +111,7 @@ void thread_init(void) {
   lock_init(&tid_lock);
   list_init(&fifo_ready_list);
   list_init(&all_list);
+  list_init(&sleep_queue); 
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
@@ -148,6 +149,8 @@ void thread_tick(void) {
 #endif
   else
     kernel_ticks++;
+   
+  check_remaining_ticks(); // Added for Project Threads: Efficient Alarm Clock
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -265,6 +268,9 @@ void thread_unblock(struct thread* t) {
   enum intr_level old_level;
 
   ASSERT(is_thread(t));
+
+  // Set time_to_wake to -1 to indicate that it is not asleep. (Used unless other indication of sleep added)
+  t->time_to_wake = -1;
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
@@ -581,3 +587,44 @@ static tid_t allocate_tid(void) {
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
+
+
+////// Functions added for Project Threads //////
+
+/* Adds current thread to sleep queue. 
+* Called by timer_sleep, which calls thread_block afterwards. 
+*/
+void add_to_sleep_queue(int64_t time) { // can edit to be tid_t instead if better
+  struct thread* curr = thread_current();
+  curr->time_to_wake = timer_ticks() + time;
+  list_push_back(&sleep_queue, &(curr->sleep_elem));
+}
+
+/* Checks time_to_wake for sleeping threads. 
+Compares time_to_wake to what is returned by timer_ticks(). */
+void check_remaining_ticks() {
+  struct thread* curr;
+  for (struct list_elem* e = list_begin(&sleep_queue); e != list_end(&sleep_queue); e = list_next(e)) {
+    curr = list_entry(e, struct thread, sleep_elem);
+    if (curr->time_to_wake > -1 && curr->time_to_wake <= timer_ticks()) {
+      list_remove(curr->elem);
+      curr->time_to_wake = -1;
+      thread_unblock(curr);
+    }
+  }
+}
+
+/* Empties sleep queue and unblocks all the threads in the sleep queue. */
+void empty_sleep_queue() {
+  struct list_elem curr_elem;
+  struct thread* curr_thread;
+  acquire_lock();
+  while(!list_empty(&sleep_queue)) {
+    sema_down(queue_sema);
+    curr_elem = list_pop_front(&sleep_queue);
+    curr_thread = list_entry(curr_elem, struct thread, sleep_elem);
+    thread_unblock(curr_thread);
+  }
+  release_lock();
+}
+

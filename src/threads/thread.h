@@ -89,6 +89,8 @@ struct thread {
   uint8_t* stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
   struct list_elem allelem;  /* List element for all threads list. */
+  int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project Threads. */
+  struct list_elem sleep_elem; /* Used for Efficient Alarm Clock. If it is in the sleeping threads list, then the thread is asleep. */
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List element. */
@@ -117,6 +119,25 @@ enum sched_policy {
  *  "-sched-default", "-sched-fair", "-sched-mlfqs", "-sched-fifo"
  * Is equal to SCHED_FIFO by default. */
 extern enum sched_policy active_sched_policy;
+
+
+////// Added for Project Threads //////
+/*
+* This global list will keep track of the sleeping_threads that have called the timer_sleep function.
+*/
+struct list sleep_queue;
+struct semaphore queue_sema;
+struct lock queue_lock;
+
+void add_to_sleep_queue(int64_t time);
+void check_remaining_ticks();
+void empty_sleep_queue();
+////// Added for Project Threads //////
+
+
+
+
+
 
 void thread_init(void);
 void thread_start(void);
