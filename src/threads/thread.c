@@ -273,7 +273,7 @@ void thread_unblock(struct thread* t) {
   ASSERT(is_thread(t));
 
   // Set time_to_wake to -1 to indicate that it is not asleep. (Used unless other indication of sleep added)
-  t->time_to_wake = -1;
+  // t->time_to_wake = -1;
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
@@ -454,6 +454,8 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   strlcpy(t->name, name, sizeof t->name);
   t->stack = (uint8_t*)t + PGSIZE;
   t->priority = priority;
+  /* set effective priority. Project 2*/
+  t->effective_priority = priority;
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
 
@@ -603,6 +605,25 @@ void add_to_sleep_queue(int64_t time) { // can edit to be tid_t instead if bette
   list_push_back(&sleep_queue, &(curr->sleep_elem));
 }
 
+void wake_up_threads(void) {
+  // current thread :5,  woke thread2 : 6, woke thread1 : 4
+  struct thread* curr;
+  int max_priority = thread_current() -> effective_priority;
+  for (struct list_elem* e = list_begin(&sleep_queue); e != list_end(&sleep_queue); e = list_next(e)) {
+    curr = list_entry(e, struct thread, sleep_elem);
+    if (curr->time_to_wake <= timer_ticks()) { // curr->time_to_wake > -1 && 
+      if (curr -> effective_priority > max_priority) {
+        max_priority = curr -> effective_priority;
+      }
+      list_remove(&curr->sleep_elem);
+      //curr->time_to_wake = -1;
+      thread_unblock(curr);
+    }
+  } 
+  if (thread_current() -> effective_priority < max_priority) {
+    intr_yield_on_return();
+  }
+}
 /* Checks time_to_wake for sleeping threads. 
 Compares time_to_wake to what is returned by timer_ticks(). */
 // void check_remaining_ticks() {

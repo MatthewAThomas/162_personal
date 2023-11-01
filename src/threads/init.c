@@ -134,6 +134,9 @@ int main(void) {
 
   printf("Boot complete.\n");
 
+  /* Enable interrupts */
+  //intr_enable();
+
   /* Run actions specified on kernel command line. */
   run_actions(argv);
 

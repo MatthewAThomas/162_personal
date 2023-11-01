@@ -88,8 +88,9 @@ struct thread {
   char name[16];             /* Name (for debugging purposes). */
   uint8_t* stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
+  int effective_priority;    /* Effective priority for priority donation. Project 2*/
   struct list_elem allelem;  /* List element for all threads list. */
-  int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project Threads. */
+  int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project2 Threads. */
   struct list_elem sleep_elem; /* Used for Efficient Alarm Clock. If it is in the sleeping threads list, then the thread is asleep. */
 
   /* Shared between thread.c and synch.c. */
@@ -130,6 +131,7 @@ extern enum sched_policy active_sched_policy;
 //struct lock queue_lock;
 
 void add_to_sleep_queue(int64_t time);
+void wake_up_threads(void);
 // void check_remaining_ticks();
 // void empty_sleep_queue();
 ////// Added for Project Threads //////

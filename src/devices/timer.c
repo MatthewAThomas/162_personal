@@ -99,9 +99,11 @@ int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 */
 void timer_sleep(int64_t ticks) {
   ASSERT(intr_get_level() == INTR_ON);
-  // todo: yield associated lock
+  intr_disable();
+  //enum intr_level old_level = intr_disable();
   add_to_sleep_queue(ticks);
-  thread_block(); 
+  thread_block();
+  intr_enable();
   // wake-up is handled in update_remaining_ticks whenever ticks increase
 }
 
@@ -150,6 +152,7 @@ void timer_print_stats(void) { printf("Timer: %" PRId64 " ticks\n", timer_ticks(
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame* args UNUSED) {
   ticks++;
+  wake_up_threads();
   thread_tick();
 }
 
