@@ -141,6 +141,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int n = args[1];
     int e = sys_sum_to_e(n);
     f -> eax = e;
+  } else if(args[0] == SYS_PT_CREATE) {
+    f->eax = 0;
   }
 
   return;

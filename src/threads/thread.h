@@ -125,13 +125,13 @@ extern enum sched_policy active_sched_policy;
 /*
 * This global list will keep track of the sleeping_threads that have called the timer_sleep function.
 */
-struct list sleep_queue;
-struct semaphore queue_sema;
-struct lock queue_lock;
+
+//struct semaphore queue_sema;
+//struct lock queue_lock;
 
 void add_to_sleep_queue(int64_t time);
-void check_remaining_ticks();
-void empty_sleep_queue();
+// void check_remaining_ticks();
+// void empty_sleep_queue();
 ////// Added for Project Threads //////
 
 
