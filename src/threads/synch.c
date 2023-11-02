@@ -218,7 +218,7 @@ void lock_init(struct lock* lock) {
   sema_init(&lock->semaphore, 1);
 
   lock->semaphore.holder = NULL;
-  list_push_front(&lock_list, &lock->semaphore.elem);
+  list_push_front(&lock_list, &(lock->semaphore.elem));
 
   NUM_LOCKS++;
 }
@@ -455,7 +455,7 @@ void donate_all_priority(void) {
   int prev_priorities[NUM_LOCKS];
   for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); i++, e = list_next(e)) 
   {
-    struct semaphore *lock_sema = list_entry(e, struct semaphore, elem);
+    struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
     curr_priorities[i] = lock_sema -> holder -> priority;
     prev_priorities[i] = -1;
   }
@@ -465,7 +465,7 @@ void donate_all_priority(void) {
     for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); 
       i++, e = list_next(e)) 
     {
-      struct semaphore *lock_sema = list_entry(e, struct semaphore, elem);
+      struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
       donate_priority(lock_sema);
       prev_priorities[i] = curr_priorities[i];
       curr_priorities[i] = lock_sema -> holder -> priority;
