@@ -20,6 +20,8 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+struct list lock_list;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list fifo_ready_list;
@@ -115,7 +117,7 @@ void thread_init(void) {
   list_init(&fifo_ready_list);
   list_init(&all_list);
   list_init(&sleep_queue); 
-  list_init(&lock_list); /* Initialize list of all semaphore that are in locks. Project 2*/
+  //list_init(&lock_list); /* Initialize list of all semaphore that are in locks. Project 2*/
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();

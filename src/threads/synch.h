@@ -13,8 +13,6 @@ struct semaphore {
   struct list_elem elem; /* Used in priority donation. Project 2 */
 };
 
-static int NUM_LOCKS = 0;
-
 void sema_init(struct semaphore*, unsigned value);
 void sema_down(struct semaphore*); 
 bool sema_try_down(struct semaphore*);
@@ -22,8 +20,8 @@ void sema_up(struct semaphore*);
 void sema_self_test(void);
 /* donate_all_priority implements priority donation. 
  This argument should be NULL in non lock operations */
-void priority_sema_down(struct semaphore*, void (*donate_all_priority) (void));
-void priority_sema_up(struct semaphore*, void (*donate_all_priority) (void));
+// void priority_sema_down(struct semaphore*, void (*donate_all_priority) (void));
+// void priority_sema_up(struct semaphore*, void (*donate_all_priority) (void));
 
 
 /* Lock. */

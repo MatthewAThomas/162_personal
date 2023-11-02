@@ -82,7 +82,7 @@ int main(void) {
   /* Clear BSS. */
   bss_init();
 
-  list_init(&lock_list);
+  //list_init(&lock_list);
 
   /* Break command line into arguments and parse options. */
   argv = read_command_line();

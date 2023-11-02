@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
+ 
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -25,7 +26,6 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
 
-static struct list lock_list; /* List containing all semaphores that are in locks */
 
 /* A kernel thread or user process.
 
@@ -89,8 +89,11 @@ struct thread {
   enum thread_status status; /* Thread state. */
   char name[16];             /* Name (for debugging purposes). */
   uint8_t* stack;            /* Saved stack pointer. */
+  
   int priority;              /* Priority. */
-  int effective_priority;    /* Effective priority for priority donation. Project 2*/
+  int effective_priority;    /* Effective priority for priority donation. Project 2 */
+  struct semaphore *waiting;  /* The semaphore of the lock that thread is waiting on. Project 2 */
+
   struct list_elem allelem;  /* List element for all threads list. */
   int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project2 Threads. */
   struct list_elem sleep_elem; /* Used for Efficient Alarm Clock. If it is in the sleeping threads list, then the thread is asleep. */
@@ -125,6 +128,9 @@ extern enum sched_policy active_sched_policy;
 
 
 ////// Added for Project Threads //////
+
+/* List containing all semaphores that are in locks */
+extern struct list lock_list;
 /*
 * This global list will keep track of the sleeping_threads that have called the timer_sleep function.
 */

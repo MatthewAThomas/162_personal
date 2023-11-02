@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+int NUM_LOCKS = 0;
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -135,36 +137,36 @@ void sema_up(struct semaphore* sema) {
   intr_set_level(old_level);
 }
 
-void priority_sema_down(struct semaphore *sema, void (*donate_all_priority) (void)) {
-  enum intr_level old_level;
+// void priority_sema_down(struct semaphore *sema, void (*donate_all_priority) (void)) {
+//   enum intr_level old_level;
 
-  ASSERT(sema != NULL);
-  ASSERT(!intr_context());
+//   ASSERT(sema != NULL);
+//   ASSERT(!intr_context());
 
-  old_level = intr_disable();
-  while (sema->value == 0) {
-    list_push_back(&sema->waiters, &thread_current()->elem);
-    thread_block();
-  }
-  sema->value--;
-  donate_all_priority();
+//   old_level = intr_disable();
+//   while (sema->value == 0) {
+//     list_push_back(&sema->waiters, &thread_current()->elem);
+//     thread_block();
+//   }
+//   sema->value--;
+//   donate_all_priority();
 
-  intr_set_level(old_level);
-}
+//   intr_set_level(old_level);
+// }
 
-void priority_sema_up(struct semaphore* sema, void (*donate_all_priority) (void)) {
-  enum intr_level old_level;
+// void priority_sema_up(struct semaphore* sema, void (*donate_all_priority) (void)) {
+//   enum intr_level old_level;
 
-  ASSERT(sema != NULL);
+//   ASSERT(sema != NULL);
 
-  old_level = intr_disable();
-  if (!list_empty(&sema->waiters))
-    thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
-  sema->value++;
-  donate_all_priority();
+//   old_level = intr_disable();
+//   if (!list_empty(&sema->waiters))
+//     thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
+//   sema->value++;
+//   donate_all_priority();
 
-  intr_set_level(old_level);
-}
+//   intr_set_level(old_level);
+// }
 
 static void sema_test_helper(void* sema_);
 
@@ -218,9 +220,9 @@ void lock_init(struct lock* lock) {
   sema_init(&lock->semaphore, 1);
 
   lock->semaphore.holder = NULL;
-  list_push_front(&lock_list, &(lock->semaphore.elem));
-
-  NUM_LOCKS++;
+  
+  // list_push_front(&lock_list, &(lock->semaphore.elem));
+  // NUM_LOCKS++;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -426,52 +428,55 @@ void cond_broadcast(struct condition* cond, struct lock* lock) {
 
 /* Priority donation functions. Project 2 */
 
-void donate_priority(struct semaphore *lock_sema) {
-  struct thread *holder = lock_sema -> holder;
-  int holder_priority = holder -> effective_priority;
+/* Donates priority */
+void donate_priority(struct semaphore *lock_sema);
+
+// void donate_priority(struct semaphore *lock_sema) {
+//   struct thread *holder = lock_sema -> holder;
+//   int holder_priority = holder -> effective_priority;
   
-  struct list *waiters_ptr = &(lock_sema -> waiters);
-  struct list_elem *e;
-  for (e = list_begin(waiters_ptr); e != list_end(waiters_ptr); e = list_next(e)) 
-  {
-    struct thread *t = list_entry(e, struct thread, elem);
-    int priority =  t -> effective_priority;
-    if (priority > holder_priority) 
-      holder_priority = priority;
-  }
-  holder -> effective_priority = holder_priority;
-}
-// Helper function for donate_all_priority
-bool is_stable(int *curr_priorities, int *prev_priorities, int size) {
-  for (int i = 0; i < size; i++) {
-    if (curr_priorities[i] != prev_priorities[i]) return false;
-  }
-  return true;
-}
-/* Iterate through all locks, implement priority donation to the threads that hold the locks */
-void donate_all_priority(void) {
-  struct list_elem *e;
+//   struct list *waiters_ptr = &(lock_sema -> waiters);
+//   struct list_elem *e;
+//   for (e = list_begin(waiters_ptr); e != list_end(waiters_ptr); e = list_next(e)) 
+//   {
+//     struct thread *t = list_entry(e, struct thread, elem);
+//     int priority =  t -> effective_priority;
+//     if (priority > holder_priority) 
+//       holder_priority = priority;
+//   }
+//   holder -> effective_priority = holder_priority;
+// }
+// // Helper function for donate_all_priority
+// bool is_stable(int *curr_priorities, int *prev_priorities, int size) {
+//   for (int i = 0; i < size; i++) {
+//     if (curr_priorities[i] != prev_priorities[i]) return false;
+//   }
+//   return true;
+// }
+// /* Iterate through all locks, implement priority donation to the threads that hold the locks */
+// void donate_all_priority(void) {
+//   struct list_elem *e;
 
-  struct semaphore *temp;
+//   struct semaphore *temp;
 
-  int curr_priorities[NUM_LOCKS];
-  int prev_priorities[NUM_LOCKS];
-  for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); i++, e = list_next(e)) 
-  {
-    struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
-    curr_priorities[i] = lock_sema -> holder -> priority;
-    prev_priorities[i] = -1;
-  }
+//   int curr_priorities[NUM_LOCKS];
+//   int prev_priorities[NUM_LOCKS];
+//   for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); i++, e = list_next(e)) 
+//   {
+//     struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
+//     curr_priorities[i] = lock_sema -> holder -> priority;
+//     prev_priorities[i] = -1;
+//   }
 
-  /* Itereate until the priorities stabilize => nested priority donation complete */
-  while (!is_stable(curr_priorities, prev_priorities, NUM_LOCKS)) {
-    for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); 
-      i++, e = list_next(e)) 
-    {
-      struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
-      donate_priority(lock_sema);
-      prev_priorities[i] = curr_priorities[i];
-      curr_priorities[i] = lock_sema -> holder -> priority;
-    }
-  }
-}
+//   /* Itereate until the priorities stabilize => nested priority donation complete */
+//   while (!is_stable(curr_priorities, prev_priorities, NUM_LOCKS)) {
+//     for (int i = 0, e = list_begin(&lock_list); e != list_end(&lock_list); 
+//       i++, e = list_next(e)) 
+//     {
+//       struct semaphore *lock_sema = list_entry((struct list_elem *) e, struct semaphore, elem);
+//       donate_priority(lock_sema);
+//       prev_priorities[i] = curr_priorities[i];
+//       curr_priorities[i] = lock_sema -> holder -> priority;
+//     }
+//   }
+// }
