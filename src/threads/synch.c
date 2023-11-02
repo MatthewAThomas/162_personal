@@ -453,6 +453,8 @@ void donate_priority(struct semaphore *lock_sema) {
         t -> effective_priority = waiter -> effective_priority;
       }
     }
+    if (t -> waiting == NULL) return;
+    
     curr_lock_sema = t -> waiting;
     t = curr_lock_sema -> holder;
 
