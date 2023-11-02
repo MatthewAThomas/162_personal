@@ -128,8 +128,8 @@ void sema_up(struct semaphore* sema) {
 
   old_level = intr_disable();
   if (!list_empty(&sema->waiters))
-    //thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
-    thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
+    thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+    // thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
   sema->value++;
 
   intr_set_level(old_level);
@@ -218,7 +218,7 @@ void lock_init(struct lock* lock) {
   sema_init(&lock->semaphore, 1);
 
   lock->semaphore.holder = NULL;
-  list_push_front(&lock_list, &(lock->semaphore.elem));
+  //list_push_front(&lock_list, &(lock->semaphore.elem));
 
   NUM_LOCKS++;
 }
@@ -236,7 +236,8 @@ void lock_acquire(struct lock* lock) {
   ASSERT(!intr_context());
   ASSERT(!lock_held_by_current_thread(lock));
 
-  priority_sema_down(&lock->semaphore, donate_all_priority);
+  sema_down(&lock->semaphore);
+  //priority_sema_down(&lock->semaphore, donate_all_priority);
   lock->holder = thread_current();
 }
 
@@ -268,7 +269,8 @@ void lock_release(struct lock* lock) {
   ASSERT(lock_held_by_current_thread(lock));
 
   lock->holder = NULL;
-  priority_sema_up(&lock->semaphore, donate_all_priority);
+  sema_up(&lock->semaphore);
+  //priority_sema_up(&lock->semaphore, donate_all_priority);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -402,8 +404,9 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
   ASSERT(lock_held_by_current_thread(lock));
 
   if (!list_empty(&cond->waiters))
-    priority_sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore,
-        donate_all_priority);
+    // priority_sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore,
+    //     donate_all_priority);
+    sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
