@@ -25,6 +25,8 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
 
+static struct list lock_list; /* List containing all semaphores that are in locks */
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -134,6 +136,10 @@ void add_to_sleep_queue(int64_t time);
 void wake_up_threads(void);
 // void check_remaining_ticks();
 // void empty_sleep_queue();
+
+/* Implements priority donation. Project 2 */
+void donate_all_priority(void);
+
 ////// Added for Project Threads //////
 
 

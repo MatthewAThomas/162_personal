@@ -115,6 +115,7 @@ void thread_init(void) {
   list_init(&fifo_ready_list);
   list_init(&all_list);
   list_init(&sleep_queue); 
+  list_init(&lock_list); /* Initialize list of all semaphore that are in locks. Project 2*/
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
@@ -135,7 +136,7 @@ void thread_start(void) {
   intr_enable();
 
   /* Wait for the idle thread to initialize idle_thread. */
-  sema_down(&idle_started);
+  priority_sema_down(&idle_started, donate_all_priority);
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -485,7 +486,24 @@ static struct thread* thread_schedule_fifo(void) {
 
 /* Strict priority scheduler */
 static struct thread* thread_schedule_prio(void) {
-  PANIC("Unimplemented scheduler policy: \"-sched=prio\"");
+  int max_priority = -1;
+  struct thread *next_thread = idle_thread;
+  struct list_elem *e;
+
+  for (e = list_begin(&fifo_ready_list); e != list_end(&fifo_ready_list); e = list_next(e)) 
+  {
+    struct thread* t = list_entry(e, struct thread, elem);
+    int priority =  t -> priority;
+ 
+    if (priority > max_priority) { // Strictly greater than in order to impl round robin
+      next_thread = t;
+      max_priority = priority;
+    }   
+  }
+  if (next_thread == idle_thread) return idle_thread;
+
+  list_remove(&next_thread -> elem);
+  return next_thread;
 }
 
 /* Fair priority scheduler */
