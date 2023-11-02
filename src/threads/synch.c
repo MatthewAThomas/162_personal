@@ -90,13 +90,13 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
-    donate_priority(sema); // Make sure effective priorities are up to date
+    //donate_priority(sema); // Make sure effective priorities are up to date
     thread_block();
   }
   sema->value--;
   sema->holder = thread_current();
   thread_current() -> waiting = NULL;
-  donate_priority(sema);  // Make sure thread has max effective priority
+  //donate_priority(sema);  // Make sure thread has max effective priority
 
   intr_set_level(old_level);
 }
@@ -246,7 +246,7 @@ void lock_acquire(struct lock* lock) {
   /* Implement priority donation and try to acquire the lock */
   thread_current() -> waiting = &lock -> semaphore;
   sema_down(&lock->semaphore);
-  //lock -> holder = thread_current();
+  lock -> holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
