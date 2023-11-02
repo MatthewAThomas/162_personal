@@ -218,7 +218,7 @@ void lock_init(struct lock* lock) {
   sema_init(&lock->semaphore, 1);
 
   lock->semaphore.holder = NULL;
-  //list_push_front(&lock_list, &(lock->semaphore.elem));
+  list_push_front(&lock_list, &(lock->semaphore.elem));
 
   NUM_LOCKS++;
 }
