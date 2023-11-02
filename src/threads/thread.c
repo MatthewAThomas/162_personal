@@ -458,8 +458,12 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   strlcpy(t->name, name, sizeof t->name);
   t->stack = (uint8_t*)t + PGSIZE;
   t->priority = priority;
-  /* set effective priority. Project 2*/
+
+  /* Set effective priority, waiting, and locks_held. Project 2*/
   t->effective_priority = priority;
+  t->waiting = NULL;
+  list_init(&t->locks_held);
+  
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
 

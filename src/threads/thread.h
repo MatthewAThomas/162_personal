@@ -92,7 +92,8 @@ struct thread {
   
   int priority;              /* Priority. */
   int effective_priority;    /* Effective priority for priority donation. Project 2 */
-  struct semaphore *waiting;  /* The semaphore of the lock that thread is waiting on. Project 2 */
+  struct semaphore *waiting; /* The semaphore of the lock that thread is waiting on. Project 2 */
+  struct list locks_held;    /* List of lock semaphores held by the thread. Project 2 */ 
 
   struct list_elem allelem;  /* List element for all threads list. */
   int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project2 Threads. */

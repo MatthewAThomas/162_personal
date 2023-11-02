@@ -90,9 +90,13 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
+    donate_priority(sema); // Make sure effective priorities are up to date
     thread_block();
   }
   sema->value--;
+  sema->holder = thread_current();
+  thread_current() -> waiting = NULL;
+  donate_priority(sema);  // Make sure thread has max effective priority
 
   intr_set_level(old_level);
 }
@@ -130,9 +134,10 @@ void sema_up(struct semaphore* sema) {
 
   old_level = intr_disable();
   if (!list_empty(&sema->waiters))
-    thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
-    // thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
+    //thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+    thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
   sema->value++;
+  sema->holder = NULL;
 
   intr_set_level(old_level);
 }
@@ -238,9 +243,10 @@ void lock_acquire(struct lock* lock) {
   ASSERT(!intr_context());
   ASSERT(!lock_held_by_current_thread(lock));
 
+  /* Implement priority donation and try to acquire the lock */
+  thread_current() -> waiting = &lock -> semaphore;
   sema_down(&lock->semaphore);
-  //priority_sema_down(&lock->semaphore, donate_all_priority);
-  lock->holder = thread_current();
+  //lock -> holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -429,7 +435,32 @@ void cond_broadcast(struct condition* cond, struct lock* lock) {
 /* Priority donation functions. Project 2 */
 
 /* Donates priority */
-void donate_priority(struct semaphore *lock_sema);
+void donate_priority(struct semaphore *lock_sema) {
+  //enum intr_level old_level = intr_disable();
+  struct semaphore *curr_lock_sema = lock_sema;
+  struct thread* t = curr_lock_sema -> holder;
+  
+  /* Move up the 'chain' of waiting threads, donating priority along the way */
+  while (curr_lock_sema != NULL && t != NULL) {
+    struct list_elem *e;
+    /* Loop over all threads waiting on curr_lock_sema */
+    for (e = list_begin(&curr_lock_sema->waiters); e != list_end(&curr_lock_sema->waiters); e = list_next(e)) 
+    {
+      struct thread *waiter = list_entry(e, struct thread, elem);
+
+      /* Update priority */
+      if (waiter->effective_priority > t->effective_priority) {
+        t -> effective_priority = waiter -> effective_priority;
+      }
+    }
+    curr_lock_sema = t -> waiting;
+    t = curr_lock_sema -> holder;
+
+    /* Check for circular wait */
+    if (curr_lock_sema == lock_sema) return;
+  }
+  //intr_set_level(old_level);
+}
 
 // void donate_priority(struct semaphore *lock_sema) {
 //   struct thread *holder = lock_sema -> holder;
