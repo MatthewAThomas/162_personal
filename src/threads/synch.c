@@ -90,13 +90,13 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
-    //donate_priority(sema); // Make sure effective priorities are up to date
     thread_block();
+    donate_priority(sema); // Make sure effective priorities are up to date
   }
   sema->value--;
   sema->holder = thread_current();
   thread_current() -> waiting = NULL;
-  //donate_priority(sema);  // Make sure thread has max effective priority
+  donate_priority(sema);  // Make sure thread has max effective priority
 
   intr_set_level(old_level);
 }
