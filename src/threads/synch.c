@@ -90,13 +90,13 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
-    //donate_priority(sema); // Make sure effective priorities are up to date
+    donate_priority(sema); // Make sure effective priorities are up to date
     thread_block();
   }
   sema->value--;
   sema->holder = thread_current();
   thread_current() -> waiting = NULL;
-  //donate_priority(sema);  // Make sure thread has max effective priority
+  donate_priority(sema);  // Make sure thread has max effective priority
 
   intr_set_level(old_level);
 }
@@ -437,6 +437,8 @@ void cond_broadcast(struct condition* cond, struct lock* lock) {
 /* Donates priority */
 void donate_priority(struct semaphore *lock_sema) {
   //enum intr_level old_level = intr_disable();
+  if (lock_sema == NULL) return;
+
   struct semaphore *curr_lock_sema = lock_sema;
   struct thread* t = curr_lock_sema -> holder;
   
@@ -454,7 +456,7 @@ void donate_priority(struct semaphore *lock_sema) {
       }
     }
     if (t -> waiting == NULL) return;
-    
+
     curr_lock_sema = t -> waiting;
     t = curr_lock_sema -> holder;
 

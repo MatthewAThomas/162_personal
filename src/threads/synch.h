@@ -36,6 +36,9 @@ bool lock_try_acquire(struct lock*);
 void lock_release(struct lock*);
 bool lock_held_by_current_thread(const struct lock*);
 
+/* Priority donation. Project 2 */
+void donate_priority(struct semaphore *lock_sema);
+
 /* Condition variable. */
 struct condition {
   struct list waiters; /* List of waiting threads. */
