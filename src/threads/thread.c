@@ -186,6 +186,8 @@ void thread_print_stats(void) {
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
+  enum intr_level old_level = intr_disable();
+
   struct thread* t;
   struct kernel_thread_frame* kf;
   struct switch_entry_frame* ef;
@@ -232,6 +234,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Restor FPU state for first Pintos process */
   asm volatile("frstor (%0)" :: "g"(temp_buffer));
 
+  if (t -> effective_priority > thread_current() -> effective_priority)
+    thread_yield();
+
+  intr_set_level(old_level);
+
   return tid;
 }
 
@@ -275,14 +282,18 @@ void thread_unblock(struct thread* t) {
   enum intr_level old_level;
 
   ASSERT(is_thread(t));
-
   // Set time_to_wake to -1 to indicate that it is not asleep. (Used unless other indication of sleep added)
   // t->time_to_wake = -1;
 
   old_level = intr_disable();
+
   ASSERT(t->status == THREAD_BLOCKED);
   thread_enqueue(t);
   t->status = THREAD_READY;
+
+  // if (t->effective_priority > thread_current()->effective_priority)
+  //   thread_yield();
+
   intr_set_level(old_level);
 }
 
