@@ -359,7 +359,10 @@ struct list *get_all_list(void) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { 
-  donate_priority(thread_current() -> waiting);
+  enum intr_level old_level = intr_disable();
+  //donate_priority(thread_current() -> waiting);
+  intr_set_level(old_level);
+  //printf("hi\n");
   thread_current()->effective_priority = new_priority; 
 }
 
