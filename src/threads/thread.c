@@ -357,13 +357,17 @@ struct list *get_all_list(void) {
   return &all_list;
 }
 
+struct thread *top_prio_thread(void);
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
-  //donate_priority(thread_current() -> waiting);
+  donate_priority(thread_current() -> waiting);
   intr_set_level(old_level);
   //printf("hi\n");
-  thread_current()->effective_priority = new_priority; 
+  thread_current()->effective_priority = new_priority;
+  if ((struct thread *) top_prio_thread() -> effective_priority > thread_current() -> effective_priority)
+    thread_yield(); 
 }
 
 /* Returns the current thread's priority. */
@@ -516,6 +520,26 @@ static struct thread* thread_schedule_prio(void) {
   if (next_thread == idle_thread) return idle_thread;
 
   list_remove(&next_thread -> elem);
+  return next_thread;
+}
+
+struct thread *top_prio_thread(void) {
+  int max_priority = -1;
+  struct thread *next_thread = idle_thread;
+  struct list_elem *e;
+
+  for (e = list_begin(&fifo_ready_list); e != list_end(&fifo_ready_list); e = list_next(e)) 
+  {
+    struct thread* t = list_entry(e, struct thread, elem);
+    int priority =  t -> priority;
+ 
+    if (priority > max_priority) { // Strictly greater than in order to impl round robin
+      next_thread = t;
+      max_priority = priority;
+    }   
+  }
+  if (next_thread == idle_thread) return idle_thread;
+
   return next_thread;
 }
 

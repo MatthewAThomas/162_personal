@@ -133,11 +133,17 @@ void sema_up(struct semaphore* sema) {
   ASSERT(sema != NULL);
 
   old_level = intr_disable();
-  if (!list_empty(&sema->waiters))
+  struct thread *chosen;
+  if (!list_empty(&sema->waiters)) {
     //thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
-    thread_unblock(list_pop_top_priority(&sema->waiters)); /* Unblocks the highest priority thread. Project 2 */
+    chosen = list_pop_top_priority(&sema->waiters);
+    thread_unblock(chosen); /* Unblocks the highest priority thread. Project 2 */
+  }
   sema->value++;
   sema->holder = NULL;
+
+  // if (chosen -> effective_priority > thread_current() -> effective_priority)
+  //   thread_yield();
 
   intr_set_level(old_level);
 }
