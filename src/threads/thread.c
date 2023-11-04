@@ -234,8 +234,14 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Restor FPU state for first Pintos process */
   asm volatile("frstor (%0)" :: "g"(temp_buffer));
 
-  if (t -> effective_priority > thread_current() -> effective_priority)
-    thread_yield();
+  if (t -> effective_priority > thread_current() -> effective_priority) {
+    if (intr_context()) {
+      intr_yield_on_return();
+    } else {
+      thread_yield();
+    }
+  }
+  //thread_yield();
 
   intr_set_level(old_level);
 
@@ -373,12 +379,20 @@ struct thread *top_prio_thread(void);
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
-  donate_priority(thread_current() -> waiting);
-  intr_set_level(old_level);
+  //donate_priority(thread_current() -> waiting);
+  
   //printf("hi\n");
   thread_current()->effective_priority = new_priority;
-  if ((struct thread *) top_prio_thread() -> effective_priority > thread_current() -> effective_priority)
-    thread_yield(); 
+  if ((struct thread *) top_prio_thread() -> effective_priority > thread_current() -> effective_priority) {
+    if (intr_context()) {
+      intr_yield_on_return();
+      thread_enqueue(thread_current());
+    } else {
+      thread_yield();
+    }
+  }
+  //thread_yield(); 
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
