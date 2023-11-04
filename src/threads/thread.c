@@ -379,12 +379,14 @@ struct thread *top_prio_thread(void);
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
-  donate_priority(thread_current() -> waiting);
+  // donate_priority(thread_current() -> waiting);
   
   //printf("hi\n");
   thread_current()->priority = new_priority;
-  if (thread_current() -> effective_priority < new_priority)
-    thread_current() -> effective_priority = new_priority;
+  thread_current()->effective_priority = new_priority;
+  donate_priority(thread_current() -> waiting);
+  // if (thread_current() -> effective_priority < new_priority)
+  //   thread_current() -> effective_priority = new_priority;
   
   if ((struct thread *) top_prio_thread() -> effective_priority > thread_current() -> effective_priority) {
     if (intr_context()) {
