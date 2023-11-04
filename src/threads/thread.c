@@ -379,10 +379,13 @@ struct thread *top_prio_thread(void);
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
-  //donate_priority(thread_current() -> waiting);
+  donate_priority(thread_current() -> waiting);
   
   //printf("hi\n");
-  thread_current()->effective_priority = new_priority;
+  thread_current()->priority = new_priority;
+  if (thread_current() -> effective_priority < new_priority)
+    thread_current() -> effective_priority = new_priority;
+  
   if ((struct thread *) top_prio_thread() -> effective_priority > thread_current() -> effective_priority) {
     if (intr_context()) {
       intr_yield_on_return();
@@ -547,7 +550,7 @@ static struct thread* thread_schedule_prio(void) {
   list_remove(&next_thread -> elem);
   return next_thread;
 }
-
+/* Allows you to peak at what the next thread is without removing it from the ready list */
 struct thread *top_prio_thread(void) {
   int max_priority = -1;
   struct thread *next_thread = idle_thread;

@@ -90,8 +90,9 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
-    thread_block();
     donate_priority(sema); // Make sure effective priorities are up to date
+    thread_block();
+    list_remove(&thread_current()->elem);
   }
   sema->value--;
   sema->holder = thread_current();
@@ -148,7 +149,7 @@ void sema_up(struct semaphore* sema) {
 
   thread_unblock(chosen); 
   /* Unblocks the highest priority thread. Project 2 */
-  if (chosen -> effective_priority > thread_current() -> effective_priority) {
+  if (chosen -> effective_priority >= thread_current() -> effective_priority) {
     if (intr_context()) {
       intr_yield_on_return();
     } else {
@@ -233,6 +234,7 @@ void lock_acquire(struct lock* lock) {
   thread_current() -> waiting = &lock -> semaphore;
   sema_down(&lock->semaphore);
   lock -> holder = thread_current();
+  lock -> semaphore.holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
