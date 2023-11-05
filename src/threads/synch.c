@@ -236,6 +236,8 @@ void lock_acquire(struct lock* lock) {
   /* Implement priority donation and try to acquire the lock */
   thread_current() -> waiting = &lock -> semaphore;
   sema_down(&lock->semaphore);
+  list_push_back(&thread_current()->locks_held, &lock -> semaphore.elem);
+
   lock -> holder = thread_current();
   lock -> semaphore.holder = thread_current();
 }
@@ -268,6 +270,7 @@ void lock_release(struct lock* lock) {
   ASSERT(lock_held_by_current_thread(lock));
 
   lock->holder = NULL;
+  list_remove(&lock->semaphore.elem);
   sema_up(&lock->semaphore);
   //priority_sema_up(&lock->semaphore, donate_all_priority);
 }
@@ -455,4 +458,17 @@ void donate_priority(struct semaphore *lock_sema) {
     if (curr_lock_sema == lock_sema) return;
   }
   //intr_set_level(old_level);
+}
+
+/* Gets highest priority from threads waiting */
+void update_priority(struct list *locks_held_ptr) {
+  struct list_elem *e;
+  /* Loop over all threads waiting on curr_lock_sema */
+  for (e = list_begin(locks_held_ptr); e != list_end(locks_held_ptr); e = list_next(e)) 
+  {
+    struct semaphore *lock_sema = list_entry(e, struct semaphore, elem);
+    
+    /* Update priority */
+    donate_priority(lock_sema);
+  }
 }

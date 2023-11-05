@@ -37,7 +37,8 @@ void lock_release(struct lock*);
 bool lock_held_by_current_thread(const struct lock*);
 
 /* Priority donation. Project 2 */
-void donate_priority(struct semaphore *lock_sema);
+void donate_priority(struct semaphore *lock_sema); // Donate priority thread holding lock_sema
+void update_priority(struct list *locks_held);     // Get the maximum priority of waiting threads
 
 /* Condition variable. */
 struct condition {
