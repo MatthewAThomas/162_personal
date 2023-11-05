@@ -237,6 +237,7 @@ void lock_acquire(struct lock* lock) {
   /* Implement priority donation and try to acquire the lock */
   thread_current() -> waiting = &lock -> semaphore;
   sema_down(&lock->semaphore);
+  thread_current() -> waiting = NULL;
   list_push_back(&thread_current()->locks_held, &lock -> semaphore.elem);
 
   lock -> holder = thread_current();
