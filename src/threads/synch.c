@@ -435,10 +435,6 @@ void donate_priority(struct semaphore *lock_sema) {
 
   struct semaphore *curr_lock_sema = lock_sema;
   struct thread* t = curr_lock_sema -> holder;
-
-  if (t == NULL) return;
-
-  t -> effective_priority = t -> priority;
   
   /* Move up the 'chain' of waiting threads, donating priority along the way */
   while (curr_lock_sema != NULL && t != NULL) {

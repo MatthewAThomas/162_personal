@@ -399,7 +399,7 @@ void thread_set_priority(int new_priority) {
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void) { 
-  update_priority(&thread_current()->locks_held);
+  //update_priority(&thread_current()->locks_held);
   return thread_current()->effective_priority; 
 }
 
