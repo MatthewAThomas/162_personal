@@ -136,6 +136,7 @@ void sema_up(struct semaphore* sema) {
   old_level = intr_disable();
   /* Set back to old priority */
   thread_current() -> effective_priority = thread_current() -> priority;
+  update_priority(&thread_current()->locks_held);
   
   struct thread *chosen = NULL;
   if (!list_empty(&sema->waiters)) {
