@@ -240,7 +240,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
     } else {
       thread_yield();
     }
-  }
+  } 
   //thread_yield();
 
   intr_set_level(old_level);
@@ -271,7 +271,7 @@ static void thread_enqueue(struct thread* t) {
   ASSERT(is_thread(t));
 
   if (active_sched_policy == SCHED_FIFO || active_sched_policy == SCHED_PRIO)
-    list_push_back(&fifo_ready_list, &t->elem);
+    list_push_back(&fifo_ready_list, &t->elem); // it should be sorted
   else
     PANIC("Unimplemented scheduling policy value: %d", active_sched_policy);
 }
@@ -540,7 +540,7 @@ static struct thread* thread_schedule_prio(void) {
   for (e = list_begin(&fifo_ready_list); e != list_end(&fifo_ready_list); e = list_next(e)) 
   {
     struct thread* t = list_entry(e, struct thread, elem);
-    int priority =  t -> priority;
+    int priority =  t -> effective_priority;
  
     if (priority > max_priority) { // Strictly greater than in order to impl round robin
       next_thread = t;
