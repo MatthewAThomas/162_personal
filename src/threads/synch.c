@@ -90,6 +90,27 @@ void sema_down(struct semaphore* sema) {
   old_level = intr_disable();
   while (sema->value == 0) {
     list_push_back(&sema->waiters, &thread_current()->elem);
+    //donate_priority(sema); // Make sure effective priorities are up to date
+    thread_block();
+    list_remove(&thread_current()->elem);
+  }
+  sema->value--;
+  sema->holder = thread_current();
+  thread_current() -> waiting = NULL;
+  //donate_priority(sema);  // Make sure thread has max effective priority
+
+  intr_set_level(old_level);
+}
+/* Same as sema_down, but with priority donation */
+void lock_sema_down(struct semaphore* sema) {
+  enum intr_level old_level;
+
+  ASSERT(sema != NULL);
+  ASSERT(!intr_context());
+
+  old_level = intr_disable();
+  while (sema->value == 0) {
+    list_push_back(&sema->waiters, &thread_current()->elem);
     donate_priority(sema); // Make sure effective priorities are up to date
     thread_block();
     list_remove(&thread_current()->elem);
@@ -97,7 +118,7 @@ void sema_down(struct semaphore* sema) {
   sema->value--;
   sema->holder = thread_current();
   thread_current() -> waiting = NULL;
-  donate_priority(sema);  // Make sure thread has max effective priority
+  //donate_priority(sema);  // Make sure thread has max effective priority
 
   intr_set_level(old_level);
 }
@@ -129,6 +150,43 @@ bool sema_try_down(struct semaphore* sema) {
 
    This function may be called from an interrupt handler. */
 void sema_up(struct semaphore* sema) {
+  enum intr_level old_level;
+
+  ASSERT(sema != NULL);
+
+  old_level = intr_disable();
+  /* Set back to old priority */
+  // thread_current() -> effective_priority = thread_current() -> priority;
+  // update_priority(&thread_current()->locks_held);
+  
+  struct thread *chosen = NULL;
+  size_t waiter_size = list_size(&sema->waiters);
+  if (!list_empty(&sema->waiters)) {
+    //thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+    chosen = list_pop_top_priority(&sema->waiters);
+  }
+  sema->value++;
+  sema->holder = NULL;
+
+  if (chosen == NULL) {
+    intr_set_level(old_level);
+    return;
+  }
+
+  thread_unblock(chosen); 
+  /* Unblocks the highest priority thread. Project 2 */
+  if (chosen -> effective_priority >= thread_current() -> effective_priority) {
+    if (intr_context()) {
+      intr_yield_on_return();
+    } else {
+      thread_yield();
+    }
+  }
+
+  intr_set_level(old_level);
+}
+/* Same as sema_up but with priority donation */
+void lock_sema_up(struct semaphore* sema) {
   enum intr_level old_level;
 
   ASSERT(sema != NULL);
@@ -237,7 +295,7 @@ void lock_acquire(struct lock* lock) {
 
   /* Implement priority donation and try to acquire the lock */
   thread_current() -> waiting = &lock -> semaphore;
-  sema_down(&lock->semaphore);
+  lock_sema_down(&lock->semaphore);
   thread_current() -> waiting = NULL;
   list_push_back(&thread_current()->locks_held, &lock -> semaphore.elem);
 
@@ -274,7 +332,7 @@ void lock_release(struct lock* lock) {
 
   lock->holder = NULL;
   list_remove(&lock->semaphore.elem);
-  sema_up(&lock->semaphore);
+  lock_sema_up(&lock->semaphore);
   //priority_sema_up(&lock->semaphore, donate_all_priority);
 }
 
