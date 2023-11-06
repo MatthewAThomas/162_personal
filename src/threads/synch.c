@@ -139,6 +139,7 @@ void sema_up(struct semaphore* sema) {
   update_priority(&thread_current()->locks_held);
   
   struct thread *chosen = NULL;
+  size_t waiter_size = list_size(&sema->waiters);
   if (!list_empty(&sema->waiters)) {
     //thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
     chosen = list_pop_top_priority(&sema->waiters);
@@ -379,6 +380,16 @@ void cond_init(struct condition* cond) {
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+
+   /* For semaphore insert */
+static bool priority_more(const struct list_elem* a_, const struct list_elem* b_, void* aux UNUSED) {
+  const struct semaphore_elem* a = list_entry(a_, struct semaphore_elem, elem);
+  const struct semaphore_elem* b = list_entry(b_, struct semaphore_elem, elem);
+  int pa = a->semaphore.holder->effective_priority;
+  int pb = b->semaphore.holder->effective_priority;
+  return pa > pb;
+}
+
 void cond_wait(struct condition* cond, struct lock* lock) {
   struct semaphore_elem waiter;
 
@@ -388,7 +399,10 @@ void cond_wait(struct condition* cond, struct lock* lock) {
   ASSERT(lock_held_by_current_thread(lock));
 
   sema_init(&waiter.semaphore, 0);
-  list_push_back(&cond->waiters, &waiter.elem);
+  // to get the semaphore with the highest priority in signaling
+  waiter.semaphore.holder = thread_current();
+  //list_push_back(&cond->waiters, &waiter.elem);
+  list_insert_ordered(&cond->waiters, &waiter.elem, priority_more, NULL);
   lock_release(lock);
   sema_down(&waiter.semaphore);
   lock_acquire(lock);
@@ -407,10 +421,26 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
   ASSERT(!intr_context());
   ASSERT(lock_held_by_current_thread(lock));
 
-  if (!list_empty(&cond->waiters))
+  if (!list_empty(&cond->waiters)){
     // priority_sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore,
     //     donate_all_priority);
+    // get the highest priority
+    // struct list_elem *e;
+    // struct thread* t = list_entry(e, struct thread, elem);
+    // int priority =  t -> effective_priority;
+ 
+    // if (priority > max_priority) {
+    //   next_thread = t;
+    //   max_priority = priority;
+    // } 
+
+    // for (e = list_begin(&cond->waiters); e != list_end(&cond->waiters); e = list_next(e)) {
+    //   struct semaphore_elem *curr_sema = list_entry(e, struct semaphore_elem, elem);
+    //   int priority =  curr_sema -> holder -> effective_priority;
+    // }
+
     sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
