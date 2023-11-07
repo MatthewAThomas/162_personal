@@ -175,7 +175,7 @@ void sema_up(struct semaphore* sema) {
 
   thread_unblock(chosen); 
   /* Unblocks the highest priority thread. Project 2 */
-  if (chosen -> effective_priority >= thread_current() -> effective_priority) {
+  if (chosen -> effective_priority > thread_current() -> effective_priority) {
     if (intr_context()) {
       intr_yield_on_return();
     } else {
