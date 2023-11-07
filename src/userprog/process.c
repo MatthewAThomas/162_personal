@@ -796,6 +796,7 @@ static void start_pthread(void* exec_) {
     /* Initialize pthread. */
     sema_init(&(curr -> user_sema), 0); // set to 0?
     curr->has_joined = false;
+    curr->kernel_thread = thread_current();
     add_pthread(thread_current(), curr);
 
     /* Initialize interrupt frame and load executable. */

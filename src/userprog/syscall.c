@@ -142,8 +142,19 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int e = sys_sum_to_e(n);
     f -> eax = e;
   } else if(args[0] == SYS_PT_CREATE) {
-    f->eax = 0;
+    lock_acquire(&global_lock);
+    f->eax = sys_pthread_create(args[1], args[2], args[3]);
+    lock_release(&global_lock);
   }
+  // SYS_PT_EXIT,      /* Exits the current thread */
+  // SYS_PT_JOIN,      /* Waits for thread to finish */
+  // SYS_LOCK_INIT,    /* Initializes a lock */
+  // SYS_LOCK_ACQUIRE, /* Acquires a lock */
+  // SYS_LOCK_RELEASE, /* Releases a lock */
+  // SYS_SEMA_INIT,    /* Initializes a semaphore */
+  // SYS_SEMA_DOWN,    /* Downs a semaphore */
+  // SYS_SEMA_UP,      /* Ups a semaphore */
+  // SYS_GET_TID,      /* Gets TID of the current thread */
 
   return;
 }
@@ -440,42 +451,10 @@ Creates a new user thread running stub function sfun, with arguments tfun and ar
 Returns TID of created thread, or TID_ERROR if allocation failed. 
 */
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
-  // // a pthread is a kernel thread in a trench coat 
-  // // --> don't need to set up all of the stuff specific to a kernel thread but do need to palloc page in userspace
-  // enum intr_level old_level = intr_disable();
-  
-  // struct thread* user_thread;
-  // // same protection as when setting up other key infrastructure
-  // if (curr == NULL || sfun == NULL || tfun == NULL) {
-  //   return TID_ERROR;
-  // }
-  // curr->user_thread = user_thread;
-  // // stub_fun* sfun, pthread_fun* tfun, const void* arg, struct* stack
-  // setup_stack(&sfun, &tfun, arg, &user_thread);
-  
-  // user_thread->tid = allocate_tid();
-  // char* name = strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c"), itoa(user_thread->tid)); // format: p#_c#, or parent # _ child #
-  // init_thread(user_thread, name, PRI_MIN); // arbitrary priority; todo: need to add
-  // // typedef void (*pthread_fun)(void*);
-  // // typedef void (*stub_fun)(pthread_fun, void*);
-
-  // curr->kernel_thread = thread_current();
-
-  // // Indicate that the thread has not had pthread_joined called on it
-  // curr -> has_joined = false;
-
-  // // Initialize user_sema (for joins)
-  // sema_init(curr -> user_sema, 0);
-  
-  // // add to list of pthreads by adding newest to the back; head should be TID 1
-  // // name needs to be limited to 16 char
-  // add_pthread(curr);
-
-  // thread_unblock(user_thread);
-  
-  // // FPU stuff omitted; threads use the same FPU as other threads from same process
-  
-  // return user_thread->tid;
+  check_valid_ptr(arg);
+  // // a pthread is a kernel thread in a trench coat --> switch between user and kernel mode with is_trap_from_userspace
+  tid_t tid = pthread_execute(sfun, tfun, arg);
+  return tid;
 }
 
 tid_t sys_pthread_join(tid_t tid) { return -1; }
