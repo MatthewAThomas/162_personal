@@ -752,8 +752,20 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr) {
    This function will be implemented in Project 2: Multithreading and
    should be similar to process_execute (). For now, it does nothing.
    */
-tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { return -1; 
-// activate pcb pagedir or else cannot write to stack
+tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
+  struct thread* t = thread_current();
+  pagedir_activate(t->pcb->pagedir);
+  void* exec_[] = {&sf, &tf, arg}; // todo: possible bug might be sending arg and not &arg; should double check
+  char* name = strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c")); 
+  // format would ideally be: p#_c#, or parent # _ child #; currently set to just p#_c for convenience atm
+  tid_t tid = thread_create(name, PRI_DEFAULT, start_pthread, &exec_);
+  if (tid == TID_ERROR) {
+    return -1;
+  }
+  // todo: add semas to block while setting up pthread
+  return tid;
+  // activate pcb pagedir or else cannot write to stack
+  // let exec_ = {&stub, &func, &args} for call to start_pthread
 }
 
 /* A thread function that creates a new user thread and starts it
@@ -762,7 +774,7 @@ tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSE
 
    This function will be implemented in Project 2: Multithreading and
    should be similar to start_process (). For now, it does nothing. */
-static void start_pthread(void* exec_ UNUSED) {
+static void start_pthread(void* exec_) {
   // let exec_ = {&stub, &func, &args}
 
   // kernel thread that creates user thread 
@@ -783,6 +795,7 @@ static void start_pthread(void* exec_ UNUSED) {
   if (success) {
     /* Initialize pthread. */
     sema_init(&(curr -> user_sema), 0); // set to 0?
+    curr->has_joined = false;
     add_pthread(thread_current(), curr);
 
     /* Initialize interrupt frame and load executable. */
