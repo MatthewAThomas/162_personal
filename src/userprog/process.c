@@ -27,7 +27,7 @@ static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
-bool setup_thread(void (**eip)(void), void** esp);
+bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sfun);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -710,7 +710,7 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. You may find it necessary to change the
    function signature. */
-bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr) { 
+bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sfun) { 
   // eip as stub
   // typedef void (*pthread_fun)(void*);
   // typedef void (*stub_fun)(pthread_fun, void*);
@@ -723,7 +723,7 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr) {
 
   kpage = palloc_get_page(PAL_USER | PAL_ZERO);
   if (kpage != NULL) {
-    uint8_t base = PHYS_BASE;
+    uint8_t* base = (uint8_t*)PHYS_BASE;
     for (int i = 1; !success; i += 1) { // TODO: add check for not infinitely checking for free space
       // simply iteratively checks for the next free page; can be optimized
       // could alternatively iterate based on # of threads but would skip over freed memory of exited threads
@@ -739,7 +739,7 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr) {
   curr->user_stack = kpage;
 
   // eip is _pthread_start_stub(pthread_fun fun, void* arg)
-  *eip = (void (*)(void))_pthread_start_stub;
+  *eip = (void (*)(void))sfun; // might have typecast error here
   return success;
 }
 
@@ -756,9 +756,14 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
   struct thread* t = thread_current();
   pagedir_activate(t->pcb->pagedir);
   void* exec_[] = {&sf, &tf, arg}; // todo: possible bug might be sending arg and not &arg; should double check
-  char* name = strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c")); 
+  // strlcat(char *dst, const char *src, size_t size); 
+  char name_helper[2] = {(char)(thread_current()->tid), '\0'};
+  
+  char* name = strlcat("p_", name_helper, strlen(name_helper));
+  // strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c")); 
   // format would ideally be: p#_c#, or parent # _ child #; currently set to just p#_c for convenience atm
-  tid_t tid = thread_create(name, PRI_DEFAULT, start_pthread, &exec_);
+  tid_t tid;
+  tid = thread_create(name, PRI_DEFAULT, start_pthread, &exec_);
   if (tid == TID_ERROR) {
     return -1;
   }
@@ -783,14 +788,14 @@ static void start_pthread(void* exec_) {
   pagedir_activate(t->pcb->pagedir);
   /// CURRENTLY HERE
   // what is exec_? the executable?
-  
+  uint32_t* setup_args = (uint32_t*)exec_;
   struct intr_frame if_;
   bool success;
 
   /* Allocate pthread. */
   struct pthread* curr = calloc(sizeof(struct pthread), 1);
 
-  success = curr != null;
+  success = curr != NULL;
  
   if (success) {
     /* Initialize pthread. */
@@ -804,17 +809,17 @@ static void start_pthread(void* exec_) {
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    success = setup_thread(&if_.eip, &if_.esp, curr);
+    success = setup_thread(&if_.eip, &if_.esp, curr, (void*)setup_args[0]);
   }
 
   if (success) {
     // stack args
-    int argc = 3; //let exec_ = {&stub, &func, &args}
+    int argc = 3; //let setup_args = {&stub, &func, &args}
     char* argv_addr[argc];
     for (int i = 0 ; i < argc ; i++) {
-      if_.esp = if_.esp - sizeof(argv[i]);
+      if_.esp = if_.esp - sizeof(setup_args[i]);
       argv_addr[i] = (char *) if_.esp;
-      memcpy(if_.esp, exec_[i], sizeof(exec_[i]));
+      memcpy(if_.esp, (void*)setup_args[i], sizeof(setup_args[i]));
     }
 
     /* 
@@ -828,22 +833,22 @@ static void start_pthread(void* exec_) {
     // void* memset(void* dst_, int value, size_t size)
 
     /* Add null pointer sentinel. */
-    if_.esp = if_.esp - sizeof(exec_[0]);
-    memset(if_.esp, NULL, sizeof(exec_[0])); // all pointers
+    if_.esp = if_.esp - sizeof(setup_args[0]);
+    memset(if_.esp, NULL, sizeof(setup_args[0])); // all pointers
 
 
     /* Stack pointers(argv[i]) in reverse order. */
     for (int i = 0 ; i < argc ; i++) {
-      if_.esp = if_.esp - sizeof(exec_[0]);
+      if_.esp = if_.esp - sizeof(setup_args[0]);
       //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
       *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
     }
 
     // stack argv
     //char *ptr = *if_.esp;
-    if_.esp = if_.esp - sizeof(exec_[0]);
+    if_.esp = if_.esp - sizeof(setup_args[0]);
     void* prev = (void*)(if_.esp + (uint32_t)4);
-    memcpy(if_.esp, &prev, sizeof(exec_[0])); // memcpy?
+    memcpy(if_.esp, &prev, sizeof(setup_args[0])); // memcpy?
     //*(char**)if_.esp = *(char**)(if_.esp + 4);
     
     // stack argc
@@ -916,7 +921,7 @@ void pthread_exit(void) {
   palloc_free_page(pthread_curr->user_stack);
   
   // remove from pthread list
-  list_remove(curr->pthread_elem);
+  list_remove(&(pthread_curr->pthread_elem));
   free(curr);
   
   // sema_up(&(cur->pcb->shared_data->wait_sema));
@@ -1026,3 +1031,18 @@ void free_table(struct fd_table *fd_table) {
     free(fd_table);
 } 
 
+
+void add_pthread(struct thread* t, struct pthread* curr) {
+  list_push_back(&(t->pcb->pthread_list), &(curr->pthread_elem));
+}
+
+struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these to use generics instead
+  struct list pthread_list = t->pcb->pthread_list;
+  for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
+        struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+        if (p->kernel_thread->tid == tid) {
+            return p;
+        }
+    } 
+  return NULL;
+}

@@ -28,19 +28,3 @@ void _pthread_start_stub(pthread_fun fun, void* arg) {
   pthread_exit(); // Call pthread_exit
 }
 
-
-
-void add_pthread(struct thread* t, struct pthread* curr) {
-  list_push_back(&(t->pcb->pthread_list), curr->pthread_elem);
-}
-
-struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these to use generics instead
-  struct list pthread_list = t->pcb->pthread_list;
-  for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
-        struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-        if (p->user_thread->tid == tid) {
-            return p;
-        }
-    } 
-  return NULL;
-}

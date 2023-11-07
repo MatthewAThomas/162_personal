@@ -188,8 +188,6 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
-
-static void user_pthread(stub_fun* sfun, pthread_fun* tfun, const void* arg);
 bool is_sleeping(struct thread* curr);
 
 #endif /* threads/thread.h */

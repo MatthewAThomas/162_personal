@@ -47,6 +47,16 @@ struct shared_data {
   bool waited_on;
 };
 
+struct pthread {
+  struct list_elem pthread_elem; // for pthread_list
+  uint8_t* user_stack;
+  struct thread* kernel_thread; 
+  struct semaphore user_sema; // used in joins
+  // use exit code in pcb after joins or termination
+  bool has_joined;  // pthread_join should fail if called on a thread that has already                     
+                    // been joined on
+};
+
 /* project 1 process helper*/
 void init_shared_data(struct shared_data* shared_data);
 /* end of helper*/
@@ -89,6 +99,10 @@ struct file* get_file_pointer(struct fd_table* fd_table, int fd);
 void free_table(struct fd_table *fd_table);
 
 
-// bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr);
+bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sfun);
+
+void add_pthread(struct thread* t, struct pthread* curr);
+struct pthread* find_pthread(struct thread* t, tid_t tid);
+
 
 #endif /* userprog/process.h */
