@@ -33,6 +33,7 @@ struct process {
   struct shared_data* shared_data;
   bool has_exec;
   struct file* cur_file;
+  struct list pthread_list; // For pThreads
 };
 
 struct shared_data {
@@ -85,8 +86,9 @@ int remove(struct fd_table *table, int fd);
 struct fd* add(struct fd_table *table, struct file* file);
 void init_table(struct fd_table* table);
 struct file* get_file_pointer(struct fd_table* fd_table, int fd);
-
 void free_table(struct fd_table *fd_table);
 
+
+// bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr);
 
 #endif /* userprog/process.h */

@@ -435,54 +435,51 @@ int sys_wait(pid_t pid) {
 }
   
 
-// /* // uncomment for pthreads
-// Creates a new user thread running stub function sfun, with arguments tfun and arg. 
-// Returns TID of created thread, or TID_ERROR if allocation failed. 
-// */
-// tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
-//   // a pthread is a kernel thread in a trench coat --> don't need to set up all of the stuff specific to a kernel thread but do need to palloc page in userspace
-//   pthread* curr = calloc(sizeof(pthread), 1); 
-//   struct thread* user_thread = palloc_get_page(PAL_USER | PAL_ZERO); // get from userspace
-//   // same protection as when setting up other key infrastructure
-//   if (curr == NULL || user_thread == NULL) {
-//     return TID_ERROR;
-//   }
-//   curr->kernel_thread = thread_current();
-//   // Indicate that the thread has not had pthread_joined called on it
-//   curr -> has_joined = false;
-//   // Initialize user_sema (for joins)
-//   sema_init(curr -> user_sema, 0);
-//   // add to list of pthreads by adding newest to the back; head should be TID 1
-//   // name needs to be limited to 16 char
-//   curr->user_thread = user_thread;
-//   user_thread->tid = allocate_tid();
-//   char* name = strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c"), itoa(user_thread->tid)); // format: p#_c#, or parent # _ child #
-//   init_thread(user_thread, name, PRI_MIN); // arbitrary priority; todo: need to add
-//   struct list_elem* e = &(curr->elem);
-//   list_push_back(pthread_list, e);
+/* 
+Creates a new user thread running stub function sfun, with arguments tfun and arg. 
+Returns TID of created thread, or TID_ERROR if allocation failed. 
+*/
+tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
+  // // a pthread is a kernel thread in a trench coat 
+  // // --> don't need to set up all of the stuff specific to a kernel thread but do need to palloc page in userspace
+  // enum intr_level old_level = intr_disable();
   
-//   struct pthread_frame* p;
-//   // Stack for pthread frame
-//   p = alloc_frame(user_thread, sizeof *p);
-//   p->eip = NULL; // TODO: return to parent? maybe should put kernel eip here
-//   p->stub = &sfun;
-//   p->func = &tfun;
-//   p->args = arg;
+  // struct thread* user_thread;
+  // // same protection as when setting up other key infrastructure
+  // if (curr == NULL || sfun == NULL || tfun == NULL) {
+  //   return TID_ERROR;
+  // }
+  // curr->user_thread = user_thread;
+  // // stub_fun* sfun, pthread_fun* tfun, const void* arg, struct* stack
+  // setup_stack(&sfun, &tfun, arg, &user_thread);
   
-//   // Stack frame for switch entry 
-//   struct switch_entry_frame* ef;
-//   ef = alloc_frame(user_thread, sizeof *ef);
-//   ef->eip = (void (*)(void))user_thread;
-  
-//   // Switch threads stack frame
-//   struct switch_threads_frame* sf;
-//   sf = alloc_frame(user_thread, sizeof *sf);
-//   sf->eip = switch_entry;
-//   sf->ebp = 0;
+  // user_thread->tid = allocate_tid();
+  // char* name = strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c"), itoa(user_thread->tid)); // format: p#_c#, or parent # _ child #
+  // init_thread(user_thread, name, PRI_MIN); // arbitrary priority; todo: need to add
+  // // typedef void (*pthread_fun)(void*);
+  // // typedef void (*stub_fun)(pthread_fun, void*);
 
-//   thread_unblock(user_thread);
+  // curr->kernel_thread = thread_current();
+
+  // // Indicate that the thread has not had pthread_joined called on it
+  // curr -> has_joined = false;
+
+  // // Initialize user_sema (for joins)
+  // sema_init(curr -> user_sema, 0);
   
-//   // FPU stuff omitted; threads use the same FPU as other threads from same process
+  // // add to list of pthreads by adding newest to the back; head should be TID 1
+  // // name needs to be limited to 16 char
+  // add_pthread(curr);
+
+  // thread_unblock(user_thread);
   
-//   return user_thread->tid;
-// }
+  // // FPU stuff omitted; threads use the same FPU as other threads from same process
+  
+  // return user_thread->tid;
+}
+
+tid_t sys_pthread_join(tid_t tid) { return -1; }
+
+void sys_pthread_exit(void) {
+  // NO_RETURN;
+}

@@ -464,6 +464,15 @@ static void kernel_thread(thread_func* function, void* aux) {
   thread_exit(); /* If function() returns, kill the thread. */
 }
 
+/* Function used as the basis for a pthread. */
+static void user_pthread(stub_fun* sfun, pthread_fun* tfun, const void* arg) {
+  ASSERT(sfun != NULL);
+  ASSERT(tfun != NULL);
+  intr_enable(); /* The scheduler runs with interrupts off. */
+  sfun(tfun, arg); /* Execute the pthread function. */
+  thread_exit(); /* If function() returns, kill the thread. */
+}
+
 /* Returns the running thread. */
 struct thread* running_thread(void) {
   uint32_t* esp;
@@ -703,6 +712,10 @@ void wake_up_threads(void) {
   if (thread_current() -> effective_priority < max_priority) {
     intr_yield_on_return();
   }
+}
+
+bool is_sleeping(struct thread* curr) {
+  return curr->time_till_wake != -1;
 }
 /* Checks time_to_wake for sleeping threads. 
 Compares time_to_wake to what is returned by timer_ticks(). */

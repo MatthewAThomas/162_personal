@@ -23,4 +23,10 @@ void sys_exit(int status);
 pid_t sys_exec(char* cmd_line);
 int sys_wait(int pid);
 
+
+// Threads syscalls
+tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg);
+tid_t sys_pthread_join(tid_t tid);
+void sys_pthread_exit(void) NO_RETURN;
+
 #endif /* userprog/syscall.h */

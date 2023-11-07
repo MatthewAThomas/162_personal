@@ -144,7 +144,8 @@ static void start_process(void* start_cmd) {
     list_init(&(new_pcb -> children));
     sema_init(&(new_pcb -> list_sema), 0);
     init_table(new_fd_table);
-    init_shared_data(new_shared_data);    
+    init_shared_data(new_shared_data);
+    list_init(&(new_pcb->pthread_list)); // for pthreads
   
     new_pcb -> fd_table = new_fd_table;
     new_pcb -> shared_data = new_shared_data;
@@ -709,8 +710,38 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. You may find it necessary to change the
    function signature. */
-   // The setup_thread function (found in process.c) should handle the creation of the user thread’s stack
-bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
+bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr) { 
+  // eip as stub
+  // typedef void (*pthread_fun)(void*);
+  // typedef void (*stub_fun)(pthread_fun, void*);
+  /* Initialize thread. */
+  if (esp == NULL) {
+    return false;
+  }
+  uint8_t* kpage;
+  bool success = false;
+
+  kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  if (kpage != NULL) {
+    uint8_t base = PHYS_BASE;
+    for (int i = 1; !success; i += 1) { // TODO: add check for not infinitely checking for free space
+      // simply iteratively checks for the next free page; can be optimized
+      // could alternatively iterate based on # of threads but would skip over freed memory of exited threads
+      success = install_page(((uint8_t*)PHYS_BASE) - (PGSIZE * i), kpage, true);
+      base = (uint8_t*)PHYS_BASE - (PGSIZE * (i - 1));
+      // TODO: if there is a page fault in trying to access user stack, check if process has been activated
+    }
+    *esp = base; 
+    // TODO: add false condition
+    // palloc_free_page(kpage);
+  }
+  
+  curr->user_stack = kpage;
+
+  // eip is _pthread_start_stub(pthread_fun fun, void* arg)
+  *eip = (void (*)(void))_pthread_start_stub;
+  return success;
+}
 
 /* Starts a new thread with a new user stack running SF, which takes
    TF and ARG as arguments on its user stack. This new thread may be
@@ -721,7 +752,9 @@ bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; 
    This function will be implemented in Project 2: Multithreading and
    should be similar to process_execute (). For now, it does nothing.
    */
-tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { return -1; }
+tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { return -1; 
+// activate pcb pagedir or else cannot write to stack
+}
 
 /* A thread function that creates a new user thread and starts it
    running. Responsible for adding itself to the list of threads in
@@ -729,7 +762,117 @@ tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSE
 
    This function will be implemented in Project 2: Multithreading and
    should be similar to start_process (). For now, it does nothing. */
-static void start_pthread(void* exec_ UNUSED) {}
+static void start_pthread(void* exec_ UNUSED) {
+  // let exec_ = {&stub, &func, &args}
+
+  // kernel thread that creates user thread 
+  // (kernel thread masked as user thread; switch based on trap from userspace)
+  struct thread* t = thread_current();
+  pagedir_activate(t->pcb->pagedir);
+  /// CURRENTLY HERE
+  // what is exec_? the executable?
+  
+  struct intr_frame if_;
+  bool success;
+
+  /* Allocate pthread. */
+  struct pthread* curr = calloc(sizeof(struct pthread), 1);
+
+  success = curr != null;
+ 
+  if (success) {
+    /* Initialize pthread. */
+    sema_init(&(curr -> user_sema), 0); // set to 0?
+    add_pthread(thread_current(), curr);
+
+    /* Initialize interrupt frame and load executable. */
+    memset(&if_, 0, sizeof if_);
+    if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+    if_.cs = SEL_UCSEG;
+    if_.eflags = FLAG_IF | FLAG_MBS;
+    success = setup_thread(&if_.eip, &if_.esp, curr);
+  }
+
+  if (success) {
+    // stack args
+    int argc = 3; //let exec_ = {&stub, &func, &args}
+    char* argv_addr[argc];
+    for (int i = 0 ; i < argc ; i++) {
+      if_.esp = if_.esp - sizeof(argv[i]);
+      argv_addr[i] = (char *) if_.esp;
+      memcpy(if_.esp, exec_[i], sizeof(exec_[i]));
+    }
+
+    /* 
+      Add padding to align the stack. 
+      The number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1).
+      Each pointer is 4 bytes since it is 32bit architecture. */
+    uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
+    if_.esp = if_.esp - stack_align_offset;
+    memset(if_.esp, 0, stack_align_offset); 
+    // /* Sets the SIZE bytes in DST to VALUE. */ 
+    // void* memset(void* dst_, int value, size_t size)
+
+    /* Add null pointer sentinel. */
+    if_.esp = if_.esp - sizeof(exec_[0]);
+    memset(if_.esp, NULL, sizeof(exec_[0])); // all pointers
+
+
+    /* Stack pointers(argv[i]) in reverse order. */
+    for (int i = 0 ; i < argc ; i++) {
+      if_.esp = if_.esp - sizeof(exec_[0]);
+      //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+      *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    }
+
+    // stack argv
+    //char *ptr = *if_.esp;
+    if_.esp = if_.esp - sizeof(exec_[0]);
+    void* prev = (void*)(if_.esp + (uint32_t)4);
+    memcpy(if_.esp, &prev, sizeof(exec_[0])); // memcpy?
+    //*(char**)if_.esp = *(char**)(if_.esp + 4);
+    
+    // stack argc
+    if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
+    memset(if_.esp, argc, sizeof(int));
+    *(int *)if_.esp = argc;
+
+    // stack fake address
+    if_.esp = if_.esp - sizeof(void*);
+    memset(if_.esp, '\0', sizeof(void*));
+  }
+
+
+  /* Handle failure with successful fd_table malloc. Must free fd_table*/
+  if (!success) {
+    if (curr != NULL) {
+      if(curr->user_stack != NULL) {
+        pagedir_clear_page(t->pcb->pagedir, curr->user_stack);
+        palloc_free_page(curr->user_stack);
+      }
+      free(curr);
+    }
+    /* After load, let the parent process know that it can stop blocking */
+    // todo:
+    // sema_up(&child_cmd->process_sema);
+    // (not necessary here since no new executable loaded)
+
+    thread_exit();
+  }
+
+  /* After load, let the parent process know that it can stop blocking */
+  // todo:
+  // sema_up(&child_cmd->process_sema);
+
+  /* Start the user process by simulating a return from an
+     interrupt, implemented by intr_exit (in
+     threads/intr-stubs.S).  Because intr_exit takes all of its
+     arguments on the stack in the form of a `struct intr_frame',
+     we just point the stack pointer (%esp) to our stack frame
+     and jump to it. */
+  asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
+  NOT_REACHED();
+}
 
 /* Waits for thread with TID to die, if that thread was spawned
    in the same process and has not been waited on yet. Returns TID on
@@ -749,7 +892,24 @@ tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-void pthread_exit(void) {}
+void pthread_exit(void) {
+  // struct fd* file_desc = list_entry(e, struct fd, list_fd);
+  struct thread* curr = thread_current();
+
+  struct pthread* pthread_curr = find_pthread(curr, curr->tid);
+  // deallocate the user stack by removing page directory mapping and freeing palloced page
+  pagedir_clear_page(curr->pcb->pagedir, pthread_curr->user_stack);
+  palloc_free_page(pthread_curr->user_stack);
+  
+  // remove from pthread list
+  list_remove(curr->pthread_elem);
+  free(curr);
+  
+  // sema_up(&(cur->pcb->shared_data->wait_sema));
+  
+  // todo: remove any related waiters for this
+  thread_exit();
+}
 
 /* Only to be used when the main thread explicitly calls pthread_exit.
    The main thread should wait on all threads in the process to
@@ -759,7 +919,25 @@ void pthread_exit(void) {}
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-void pthread_exit_main(void) {}
+void pthread_exit_main(void) {
+  // Grading comment: pthread_exit_main must first wake any waiters, 
+  // then join on all unjoined threads. Then, simply call process_exit.
+  // 
+  // todo: grab the process level lock (whenever handling process-level stuff)
+  // todo: wake all waiters
+  // user level lock (sema, etc.) get ID to grab it (like in FD table)
+  struct list pthread_list = thread_current()->pcb->pthread_list;
+  wake_up_threads();
+  for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
+    struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+    pthread_join(p->kernel_thread->tid);
+  } 
+  process_exit();
+  // whoever calls process exit = designated exiter = killed last
+  // threads interrupted by timer → can wait for interrupt handler to check if thread is trap from user space → direct to pthread_exit
+  // >> need to check if from user space first (if already in kernel, can accidentally call pthread exit twice)
+  // todo: in pthread exit syscall handler, before exiting, check if only 1 thread / lock remaining (can use cond_wait condition variable)
+}
 
 /* 
     Looks for the FD list_elem with the FD number N. 
