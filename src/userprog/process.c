@@ -913,9 +913,11 @@ tid_t pthread_join(tid_t tid UNUSED) { return -1; }
    now, it does nothing. */
 void pthread_exit(void) {
   // struct fd* file_desc = list_entry(e, struct fd, list_fd);
-  struct thread* curr = thread_current();
 
+  /* comment out for testing tests/userprog/multithreading/create-simple
+  struct thread* curr = thread_current();
   struct pthread* pthread_curr = find_pthread(curr, curr->tid);
+
   // deallocate the user stack by removing page directory mapping and freeing palloced page
   pagedir_clear_page(curr->pcb->pagedir, pthread_curr->user_stack);
   palloc_free_page(pthread_curr->user_stack);
@@ -928,6 +930,7 @@ void pthread_exit(void) {
   
   // todo: remove any related waiters for this
   thread_exit();
+  */
 }
 
 /* Only to be used when the main thread explicitly calls pthread_exit.
@@ -945,6 +948,8 @@ void pthread_exit_main(void) {
   // todo: grab the process level lock (whenever handling process-level stuff)
   // todo: wake all waiters
   // user level lock (sema, etc.) get ID to grab it (like in FD table)
+
+  /* comment out for testing tests/userprog/multithreading/create-simple
   struct list pthread_list = thread_current()->pcb->pthread_list;
   wake_up_threads();
   for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
@@ -952,6 +957,8 @@ void pthread_exit_main(void) {
     pthread_join(p->kernel_thread->tid);
   } 
   process_exit();
+   */
+
   // whoever calls process exit = designated exiter = killed last
   // threads interrupted by timer → can wait for interrupt handler to check if thread is trap from user space → direct to pthread_exit
   // >> need to check if from user space first (if already in kernel, can accidentally call pthread exit twice)
