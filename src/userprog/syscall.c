@@ -451,7 +451,9 @@ Creates a new user thread running stub function sfun, with arguments tfun and ar
 Returns TID of created thread, or TID_ERROR if allocation failed. 
 */
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
-  check_valid_ptr(arg);
+  // check_valid_ptr(arg);
+  // check_valid_ptr(sfun); // might not be in userspace?
+  // check_valid_ptr(tfun);
   // // a pthread is a kernel thread in a trench coat --> switch between user and kernel mode with is_trap_from_userspace
   tid_t tid = pthread_execute(sfun, tfun, arg);
   return tid;

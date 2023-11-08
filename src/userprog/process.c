@@ -352,7 +352,7 @@ void process_exit(void) {
   if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
     free(pcb_to_free->shared_data);
   }
-
+  // todo: check that open pthreads are closed / freed
   cur->pcb = NULL;
   free(pcb_to_free);
   thread_exit();
@@ -759,7 +759,10 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
   // strlcat(char *dst, const char *src, size_t size); 
   char name_helper[2] = {(char)(thread_current()->tid), '\0'};
   
-  char* name = strlcat("p_", name_helper, strlen(name_helper));
+  // char* name = strlcat("p_", name_helper, strlen(name_helper));
+  // give the same name as current thread for simplicity in testing
+  char* name = t->name;
+
   // strcat(strcat(strcat("p", itoa(thread_current()->tid)), "_c")); 
   // format would ideally be: p#_c#, or parent # _ child #; currently set to just p#_c for convenience atm
   tid_t tid;
@@ -914,7 +917,6 @@ tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 void pthread_exit(void) {
   // struct fd* file_desc = list_entry(e, struct fd, list_fd);
 
-  /* comment out for testing tests/userprog/multithreading/create-simple
   struct thread* curr = thread_current();
   struct pthread* pthread_curr = find_pthread(curr, curr->tid);
 
@@ -930,7 +932,6 @@ void pthread_exit(void) {
   
   // todo: remove any related waiters for this
   thread_exit();
-  */
 }
 
 /* Only to be used when the main thread explicitly calls pthread_exit.
@@ -949,15 +950,17 @@ void pthread_exit_main(void) {
   // todo: wake all waiters
   // user level lock (sema, etc.) get ID to grab it (like in FD table)
 
-  /* comment out for testing tests/userprog/multithreading/create-simple
+  
   struct list pthread_list = thread_current()->pcb->pthread_list;
+  tid_t designated = thread_current()->tid;
   wake_up_threads();
   for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
     struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-    pthread_join(p->kernel_thread->tid);
+    if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) { // todo
+      pthread_join(p->kernel_thread->tid);
+    }
   } 
   process_exit();
-   */
 
   // whoever calls process exit = designated exiter = killed last
   // threads interrupted by timer → can wait for interrupt handler to check if thread is trap from user space → direct to pthread_exit
