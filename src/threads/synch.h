@@ -33,6 +33,7 @@ struct lock {
 // FOR USERTHREADS
 // /* Maintains 1 to 1 mapping between user and kernel locks */
 // struct user_lock_wrapper {
+//   bool has_been_acquired;  
 //   void *user_lock;            /* User locks are chars typedef-ed as lock_t in syscall.h */
 //   struct lock *kernel_lock   /* Corresponding kernel lock */
 //   struct list_elem elem      /* Part of struct list user_locks */

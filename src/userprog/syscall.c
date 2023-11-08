@@ -154,20 +154,24 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   //   f->eax = (int) success;
   // } 
   // else if (args[0] == SYS_LOCK_ACQUIRE) {
-  //   sys_lock_acquire(args[1]);
+  //   bool success = sys_lock_acquire(args[1]);
+  //   f->eax = (int) success;
   // } 
   // else if (args[0] == SYS_LOCK_RELEASE) {
-  //   sys_lock_release(args[1]);
+  //   bool success = sys_lock_release(args[1]);
+  //   f->eax = (int) success;
   // } 
   // else if (args[0] == SYS_SEMA_INIT) {
   //   bool success = sys_sema_init(args[1]);
   //   f->eax = (int) success;
   // } 
   // else if (args[0] == SYS_SEMA_DOWN) {
-  //   sys_sema_down(args[1]);
+  //   bool success = sys_sema_down(args[1]);
+  //   f->eax = (int) success;
   // }
   // else if (args[0] == SYS_SEMA_UP) {
-  //   sys_sema_up(args[1]);
+  //   bool success = sys_sema_up(args[1]);
+  //   f->eax = (int) success;
   // }
   
   // SYS_PT_EXIT,      /* Exits the current thread */
@@ -502,6 +506,7 @@ void sys_pthread_exit(void) {
 //   }
 
 //   lock_init(kernel_lock);
+//   wrapper -> has_been_acquired = false;
 //   wrapper -> user_lock = lock;
 //   wrapper -> kernel_lock = kernel_lock;
 
@@ -509,7 +514,7 @@ void sys_pthread_exit(void) {
 //   return true;
 // }
 
-// void sys_lock_acquire(lock_t *lock) {
+// bool sys_lock_acquire(lock_t *lock) {
 //   check_valid_ptr(lock);
 
 //   struct thread *t = thread_current();
@@ -518,14 +523,17 @@ void sys_pthread_exit(void) {
 //   {
 //     struct user_lock_wrapper *wrapper = list_entry (e, struct user_lock_wrapper, elem);
 //     if (wrapper->user_lock == lock) {
+//       if (wrapper->has_been_acquired)
+//         return false;
 //       lock_acquire(wrapper->kernel_lock);
-//       return;
+//       wrapper->has_been_acquired = true;
+//       return true;
 //     }
 //   }
-
+//   return false;
 // }
 
-// void sys_lock_release(lock_t *lock) {
+// bool sys_lock_release(lock_t *lock) {
 //   check_valid_ptr(lock);
 
 //   struct thread *t = thread_current();
@@ -541,10 +549,10 @@ void sys_pthread_exit(void) {
 //       list_remove(&wrapper->elem);
 //       free(wrapper);
 
-//       return;
+//       return true;
 //     }
 //   }
-
+//   return false;
 // }
 
 // bool sys_sema_init(sema_t *sema, int val) {
@@ -565,7 +573,7 @@ void sys_pthread_exit(void) {
 //   return true;
 // }
 
-// void sys_sema_down(sema_t *sema) {
+// bool sys_sema_down(sema_t *sema) {
 //   check_valid_ptr(sema);
 
 //   struct thread *t = thread_current();
@@ -575,13 +583,13 @@ void sys_pthread_exit(void) {
 //     struct user_sema_wrapper *wrapper = list_entry (e, struct user_sema_wrapper, elem);
 //     if (wrapper->user_sema == sema) {
 //       sema_down(wrapper->kernel_sema);
-//       return;
+//       return true;
 //     }
 //   }
-
+//   return false;
 // }
 
-// void sys_sema_up(sema_t *sema) {
+// bool sys_sema_up(sema_t *sema) {
 //   check_valid_ptr(sema);
 
 //   struct thread *t = thread_current();
@@ -597,8 +605,8 @@ void sys_pthread_exit(void) {
 //       list_remove(&wrapper->elem);
 //       free(wrapper);
 
-//       return;
+//       return true;
 //     }
 //   }
-
+//   return false;
 // }
