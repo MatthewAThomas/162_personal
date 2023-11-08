@@ -55,6 +55,7 @@ struct pthread {
   // use exit code in pcb after joins or termination
   bool has_joined;  // pthread_join should fail if called on a thread that has already                     
                     // been joined on
+  bool terminated; // when thread_exit has been called without join happening first
 };
 
 /* project 1 process helper*/
@@ -103,6 +104,5 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sf
 
 void add_pthread(struct thread* t, struct pthread* curr);
 struct pthread* find_pthread(struct thread* t, tid_t tid);
-
 
 #endif /* userprog/process.h */

@@ -142,19 +142,26 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int e = sys_sum_to_e(n);
     f -> eax = e;
   } else if(args[0] == SYS_PT_CREATE) {
-    lock_acquire(&global_lock);
-    f->eax = sys_pthread_create(args[1], args[2], args[3]);
-    lock_release(&global_lock);
+    //lock_acquire(&global_lock);
+    f->eax = sys_pthread_create((stub_fun)args[1], (pthread_fun)args[2], (uint32_t)args[3]);
+    //lock_release(&global_lock);
   }
-  // SYS_PT_EXIT,      /* Exits the current thread */
-  // SYS_PT_JOIN,      /* Waits for thread to finish */
+  else if (args[0] == SYS_PT_JOIN) {
+    int tid = args[1];
+    f -> eax = sys_pthread_join(tid);
+  }
+  else if (args[0] == SYS_PT_EXIT) {
+    sys_pthread_exit();
+  }
+  else if (args[0] == SYS_GET_TID) {
+    f->eax = thread_current()->tid;
+  }
   // SYS_LOCK_INIT,    /* Initializes a lock */
   // SYS_LOCK_ACQUIRE, /* Acquires a lock */
   // SYS_LOCK_RELEASE, /* Releases a lock */
   // SYS_SEMA_INIT,    /* Initializes a semaphore */
   // SYS_SEMA_DOWN,    /* Downs a semaphore */
   // SYS_SEMA_UP,      /* Ups a semaphore */
-  // SYS_GET_TID,      /* Gets TID of the current thread */
 
   return;
 }
@@ -459,8 +466,19 @@ tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
   return tid;
 }
 
-tid_t sys_pthread_join(tid_t tid) { return -1; }
+tid_t sys_pthread_join(tid_t tid) { 
+  tid_t ret = pthread_join(tid);
+  struct pthread* p = find_pthread(thread_current(), tid);
+  if (p != NULL && ret != TID_ERROR) sema_down(&(p -> user_sema));
+  return ret;
+}
 
 void sys_pthread_exit(void) {
-  // NO_RETURN;
+  struct thread* curr = thread_current();
+  if (curr == curr->pcb->main_thread) {
+    pthread_exit_main();
+  }
+  else {
+    pthread_exit();
+  }
 }

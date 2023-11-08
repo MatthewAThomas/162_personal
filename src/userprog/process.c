@@ -754,10 +754,10 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sf
    */
 tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
   struct thread* t = thread_current();
-  pagedir_activate(t->pcb->pagedir);
+  process_activate();
   void* exec_[] = {&sf, &tf, arg}; // todo: possible bug might be sending arg and not &arg; should double check
   // strlcat(char *dst, const char *src, size_t size); 
-  char name_helper[2] = {(char)(thread_current()->tid), '\0'};
+  // char name_helper[2] = {(char)(thread_current()->tid), '\0'};
   
   // char* name = strlcat("p_", name_helper, strlen(name_helper));
   // give the same name as current thread for simplicity in testing
@@ -788,7 +788,8 @@ static void start_pthread(void* exec_) {
   // kernel thread that creates user thread 
   // (kernel thread masked as user thread; switch based on trap from userspace)
   struct thread* t = thread_current();
-  pagedir_activate(t->pcb->pagedir);
+  // pagedir_activate(t->pcb->pagedir);
+  process_activate();
   /// CURRENTLY HERE
   // what is exec_? the executable?
   uint32_t* setup_args = (uint32_t*)exec_;
@@ -903,7 +904,23 @@ static void start_pthread(void* exec_) {
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-tid_t pthread_join(tid_t tid UNUSED) { return -1; }
+tid_t pthread_join(tid_t tid) { 
+  // Note: pthread_join and pthread_exit are necessary for passing the create-simple test
+  // sema_down(&(child_data -> wait_sema));
+  // int exit_status = child_data -> exit_code;
+
+  // return exit_status;
+
+  struct thread* curr = thread_current();
+  struct pthread* p = find_pthread(curr, tid);
+  if (p == NULL) return TID_ERROR;
+  if (p->has_joined) return TID_ERROR;
+  if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
+  // wait on thread with TID to exit
+  sema_down(&(p -> user_sema));
+  p->has_joined = true;
+  return p->kernel_thread->tid;
+}
 
 /* Free the current thread's resources. Most resources will
    be freed on thread_exit(), so all we have to do is deallocate the
@@ -915,23 +932,23 @@ tid_t pthread_join(tid_t tid UNUSED) { return -1; }
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
 void pthread_exit(void) {
-  // struct fd* file_desc = list_entry(e, struct fd, list_fd);
-
+  // todo: edit for terminated stuff (track termination status w/o freeing info; see: thread_exit)
   struct thread* curr = thread_current();
   struct pthread* pthread_curr = find_pthread(curr, curr->tid);
 
   // deallocate the user stack by removing page directory mapping and freeing palloced page
   pagedir_clear_page(curr->pcb->pagedir, pthread_curr->user_stack);
   palloc_free_page(pthread_curr->user_stack);
-  
-  // remove from pthread list
-  list_remove(&(pthread_curr->pthread_elem));
-  free(curr);
+
+  if (pthread_curr->terminated) return; // might need to move till after clearing pages
+  pthread_curr->terminated = true;
+  // remove from pthread_list and free pthread struct only in pthread_exit_main
   
   // sema_up(&(cur->pcb->shared_data->wait_sema));
   
-  // todo: remove any related waiters for this
+  // todo: remove any related waiters + free related locks for this
   thread_exit();
+  // current issue 
 }
 
 /* Only to be used when the main thread explicitly calls pthread_exit.
@@ -949,17 +966,27 @@ void pthread_exit_main(void) {
   // todo: grab the process level lock (whenever handling process-level stuff)
   // todo: wake all waiters
   // user level lock (sema, etc.) get ID to grab it (like in FD table)
-
-  
+  // lock_acquire(&global_lock);
   struct list pthread_list = thread_current()->pcb->pthread_list;
   tid_t designated = thread_current()->tid;
   wake_up_threads();
   for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
     struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-    if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) { // todo
-      pthread_join(p->kernel_thread->tid);
+    tid_t tid = p->kernel_thread->tid;
+    if (tid != designated) { // todo
+    // if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) {
+      pthread_join(tid);
     }
+    list_remove(&(p->pthread_elem));
+    free(p);
   } 
+
+  
+  struct pthread* p = list_entry(list_pop_front(&pthread_list), struct pthread, pthread_elem);
+  ASSERT(list_empty(&pthread_list));
+  free(p);
+  // lock_release(&global_lock);
+  // todo: in pthread exit syscall handler, before exiting, check if only 1 thread / lock remaining (can use cond_wait condition variable)
   process_exit();
 
   // whoever calls process exit = designated exiter = killed last
@@ -1048,9 +1075,11 @@ void add_pthread(struct thread* t, struct pthread* curr) {
 
 struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these to use generics instead
   struct list pthread_list = t->pcb->pthread_list;
+  int size = list_size(&pthread_list);
   for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
         struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-        if (p->kernel_thread->tid == tid) {
+        tid_t p_tid = p->kernel_thread->tid;
+        if (p_tid == tid) {
             return p;
         }
     } 
