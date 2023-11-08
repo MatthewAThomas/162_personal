@@ -30,6 +30,22 @@ struct lock {
   struct semaphore semaphore; /* Binary semaphore controlling access. */
 };
 
+// FOR USERTHREADS
+// /* Maintains 1 to 1 mapping between user and kernel locks */
+// struct user_lock_wrapper {
+//   void *user_lock;            /* User locks are chars typedef-ed as lock_t in syscall.h */
+//   struct lock *kernel_lock   /* Corresponding kernel lock */
+//   struct list_elem elem      /* Part of struct list user_locks */
+// }
+
+// FOR USERTHREADS
+// /* Maintains 1 to 1 mapping between user and kernel semaphores */
+// struct user_sema_wrapper {
+//   void *user_sema;               /* User semaphores are chars typedef-ed as sema_t in syscall.h */
+//   struct semaphore *kernel_sema /* Corresponding kernel semaphore */
+//   struct list_elem elem         /* Part of struct list user_semas */
+// }
+
 void lock_init(struct lock*);
 void lock_acquire(struct lock*);
 bool lock_try_acquire(struct lock*);

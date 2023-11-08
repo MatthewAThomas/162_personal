@@ -43,6 +43,7 @@ double compute_e(int n);
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg);
 void sys_pthread_exit(void) NO_RETURN;
 tid_t sys_pthread_join(tid_t tid);
+/* Should we rename the following sys_lock_init, etc? Might run into a multiple definitions error */
 bool lock_init(lock_t* lock);
 void lock_acquire(lock_t* lock);
 void lock_release(lock_t* lock);
