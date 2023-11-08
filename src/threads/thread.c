@@ -514,6 +514,11 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->waiting = NULL;
   list_init(&t->locks_held);
 
+  // FOR USERTHREADS
+  // /* Initialize user-level synch data structures */
+  // list_init(&t->user_locks);
+  // list_init(&t->user_semas);
+
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
 
