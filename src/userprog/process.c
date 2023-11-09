@@ -728,10 +728,11 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sf
       // simply iteratively checks for the next free page; can be optimized
       // could alternatively iterate based on # of threads but would skip over freed memory of exited threads
       success = install_page(((uint8_t*)PHYS_BASE) - (PGSIZE * i), kpage, true);
-      base = (uint8_t*)PHYS_BASE - (PGSIZE * (i - 1));
+      //base = (uint8_t*)PHYS_BASE - (PGSIZE * (i - 1));
+      base = (uint8_t*)PHYS_BASE - (PGSIZE * i);
       // TODO: if there is a page fault in trying to access user stack, check if process has been activated
     }
-    *esp = base; 
+    *esp = base + PGSIZE; 
     // TODO: add false condition
     // palloc_free_page(kpage);
   }
@@ -760,7 +761,8 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
   //process_activate();
 
   sema_init(&pthread_sema, 0);
-  void* exec_[] = {&sf, &tf, arg, &pthread_sema}; // todo: possible bug might be sending arg and not &arg; should double check
+  // void* exec_[] = {&sf, &tf, arg, &pthread_sema}; // todo: possible bug might be sending arg and not &arg; should double check
+  void* exec_[] = {sf, tf, arg, &pthread_sema};
   // strlcat(char *dst, const char *src, size_t size); 
   // char name_helper[2] = {(char)(thread_current()->tid), '\0'};
   
@@ -821,58 +823,75 @@ static void start_pthread(void* exec_) {
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
     success = setup_thread(&if_.eip, &if_.esp, curr, (void*)setup_args[0]);
+    if_.eip = setup_args[0]; // Set instruction pointer to the stub
   }
 
   /* Stack Arguments */
   
-  // if (success) {
-  //   // stack args
-  //   int argc = 3; //let setup_args = {&stub, &func, &args}
-  //   char* argv_addr[argc];
-  //   for (int i = 0 ; i < argc ; i++) {
-  //     if_.esp = if_.esp - sizeof(setup_args[i]);
-  //     argv_addr[i] = (char *) if_.esp;
-  //     memcpy(if_.esp, (void*)setup_args[i], sizeof(setup_args[i]));
-  //   }
+  if (success) {
+    // stack args
+    // Push func and args onto the stack
+    // int argc = 3; //let setup_args = {&stub, &func, &args}
+    // char* argv_addr[argc];
+    // for (int i = 1 ; i < argc ; i++) {
+    //   if_.esp = if_.esp - sizeof(setup_args[i]);
+    //   argv_addr[i] = (char *) if_.esp;
+    //   memcpy(if_.esp, (void*)setup_args[i], sizeof(setup_args[i]));
+    // }
 
-  //   /* 
-  //     Add padding to align the stack. 
-  //     The number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1).
-  //     Each pointer is 4 bytes since it is 32bit architecture. */
-  //   uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
-  //   if_.esp = if_.esp - stack_align_offset;
-  //   memset(if_.esp, 0, stack_align_offset); 
-  //   // /* Sets the SIZE bytes in DST to VALUE. */ 
-  //   // void* memset(void* dst_, int value, size_t size)
-
-  //   /* Add null pointer sentinel. */
-  //   if_.esp = if_.esp - sizeof(setup_args[0]);
-  //   memset(if_.esp, NULL, sizeof(setup_args[0])); // all pointers
-
-
-  //   /* Stack pointers(argv[i]) in reverse order. */
-  //   for (int i = 0 ; i < argc ; i++) {
-  //     if_.esp = if_.esp - sizeof(setup_args[0]);
-  //     //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
-  //     *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
-  //   }
-
-  //   // stack argv
-  //   //char *ptr = *if_.esp;
-  //   if_.esp = if_.esp - sizeof(setup_args[0]);
-  //   void* prev = (void*)(if_.esp + (uint32_t)4);
-  //   memcpy(if_.esp, &prev, sizeof(setup_args[0])); // memcpy?
-  //   //*(char**)if_.esp = *(char**)(if_.esp + 4);
+    /* Align stack */
+    if_.esp = (uint8_t *) if_.esp - 8;
     
-  //   // stack argc
-  //   if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
-  //   memset(if_.esp, argc, sizeof(int));
-  //   *(int *)if_.esp = argc;
+    /* Push args onto stack */
+    if_.esp = (uint8_t *) if_.esp - sizeof(void *);
+    memcpy(if_.esp, &setup_args[2], sizeof(void *));
 
-  //   // stack fake address
-  //   if_.esp = if_.esp - sizeof(void*);
-  //   memset(if_.esp, '\0', sizeof(void*));
-  // }
+    /* Push func onto stack */
+    if_.esp = (uint8_t *) if_.esp - sizeof(void *);
+    memcpy(if_.esp, &setup_args[1], sizeof(void *));
+
+    /* Push fake return address */
+    if_.esp = (uint8_t *) if_.esp - sizeof(void *);
+    memset(if_.esp, 0, sizeof(void *));
+
+    // /* 
+    //   Add padding to align the stack. 
+    //   The number of pointers to be stacked is equal to 1(null)+argc (argv pointers) + 1(argv) + 1 argc(1).
+    //   Each pointer is 4 bytes since it is 32bit architecture. */
+    // uint32_t stack_align_offset = (uint32_t)(if_.esp - ((uint32_t)argc + 3)*4)%16;
+    // if_.esp = if_.esp - stack_align_offset;
+    // memset(if_.esp, 0, stack_align_offset); 
+    // // /* Sets the SIZE bytes in DST to VALUE. */ 
+    // // void* memset(void* dst_, int value, size_t size)
+
+    // /* Add null pointer sentinel. */
+    // if_.esp = if_.esp - sizeof(setup_args[0]);
+    // memset(if_.esp, NULL, sizeof(setup_args[0])); // all pointers
+
+
+    // /* Stack pointers(argv[i]) in reverse order. */
+    // for (int i = 0 ; i < argc ; i++) {
+    //   if_.esp = if_.esp - sizeof(setup_args[0]);
+    //   //memcpy(if_.esp, &argv_addr[argc-i-1], sizeof(char*));
+    //   *(int *)if_.esp = (uint32_t) argv_addr[argc - i - 1];
+    // }
+
+    // // stack argv
+    // //char *ptr = *if_.esp;
+    // if_.esp = if_.esp - sizeof(setup_args[0]);
+    // void* prev = (void*)(if_.esp + (uint32_t)4);
+    // memcpy(if_.esp, &prev, sizeof(setup_args[0])); // memcpy?
+    // //*(char**)if_.esp = *(char**)(if_.esp + 4);
+    
+    // // stack argc
+    // if_.esp = if_.esp - sizeof(int); // argv_addr must be 16 bytes aligned meaning the last hex digit should be 0
+    // memset(if_.esp, argc, sizeof(int));
+    // *(int *)if_.esp = argc;
+
+    // // stack fake address
+    // if_.esp = if_.esp - sizeof(void*);
+    // memset(if_.esp, '\0', sizeof(void*));
+  }
 
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
