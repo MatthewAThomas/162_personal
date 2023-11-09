@@ -735,9 +735,10 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sf
     *esp = base + PGSIZE; 
     // TODO: add false condition
     // palloc_free_page(kpage);
+    curr -> user_stack = base;
   }
   
-  curr->user_stack = kpage;
+  //curr->user_stack = kpage;
 
   // eip is _pthread_start_stub(pthread_fun fun, void* arg)
   *eip = (void (*)(void))sfun; // might have typecast error here
@@ -969,13 +970,16 @@ void pthread_exit(void) {
 
   // deallocate the user stack by removing page directory mapping and freeing palloced page
   pagedir_clear_page(curr->pcb->pagedir, pthread_curr->user_stack);
-  palloc_free_page(pthread_curr->user_stack);
+  void *phys_addr = pagedir_get_page(curr->pcb->pagedir, pthread_curr->user_stack);
+  palloc_free_page(phys_addr);
+  //palloc_free_page(pthread_curr->user_stack);
 
   if (pthread_curr->terminated) return; // might need to move till after clearing pages
   pthread_curr->terminated = true;
   // remove from pthread_list and free pthread struct only in pthread_exit_main
   
   // sema_up(&(cur->pcb->shared_data->wait_sema));
+  sema_up(&(pthread_curr->user_sema));
   
   // todo: remove any related waiters + free related locks for this
   thread_exit();
