@@ -205,6 +205,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  t->pcb = thread_current() -> pcb;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -234,6 +235,10 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   
   /* Restor FPU state for first Pintos process */
   asm volatile("frstor (%0)" :: "g"(temp_buffer));
+
+  /* Add thread to pthread_list */
+  // if (thread_current() -> pcb) // If not the first pintos thread
+  //   list_push_front(&(thread_current()->pcb->pthread_list), &(t->pthread_elem));
 
   if (t -> effective_priority > thread_current() -> effective_priority) {
     if (intr_context()) {
@@ -520,6 +525,7 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   // list_init(&t->user_semas);
 
   t->pcb = NULL;
+  //t->pcb = thread_current() -> pcb;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable();

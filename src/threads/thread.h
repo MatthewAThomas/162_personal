@@ -101,6 +101,8 @@ struct thread {
   // struct list user_locks;    /* List of struct user_lock_wrappers (synch.h) */
   // struct list user_semas;    /* List of struct user_sema_wrappers (synch.h) */
 
+  struct list_elem pthread_elem;
+
   struct list_elem allelem;  /* List element for all threads list. */
   int64_t time_to_wake;    /* Used for Efficient Alarm Clock in Project2 Threads. */
   struct list_elem sleep_elem; /* Used for Efficient Alarm Clock. If it is in the sleeping threads list, then the thread is asleep. */
