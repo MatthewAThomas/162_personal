@@ -155,6 +155,9 @@ static void start_process(void* start_cmd) {
     if(child_cmd->has_exec == false) list_init(child_cmd -> children);
     list_push_front(child_cmd -> children, &(new_shared_data -> elem));
     new_pcb->has_exec = true;
+
+    list_init(&new_pcb->user_locks);
+    list_init(&new_pcb->user_semas);
   }
 
   char *token, *save_ptr;
@@ -801,7 +804,7 @@ static void start_pthread(void* exec_) {
   // (kernel thread masked as user thread; switch based on trap from userspace)
   struct thread* t = thread_current();
   // pagedir_activate(t->pcb->pagedir);
-  //process_activate();
+  process_activate();
   /// CURRENTLY HERE
   // what is exec_? the executable?
   uint32_t* setup_args = (uint32_t*)exec_;

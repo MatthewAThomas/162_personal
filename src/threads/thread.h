@@ -98,11 +98,6 @@ struct thread {
   
   bool to_be_killed; // used when process_exit is called to signal pthreads have to be killed
 
-  // FOR USERTHREADS
-  /* For user-level locks and semaphores */
-  struct list user_locks;    /* List of struct user_lock_wrappers (synch.h) */
-  struct list user_semas;    /* List of struct user_sema_wrappers (synch.h) */
-
   struct list_elem pthread_elem;
 
   struct list_elem allelem;  /* List element for all threads list. */

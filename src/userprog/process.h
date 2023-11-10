@@ -34,6 +34,11 @@ struct process {
   bool has_exec;
   struct file* cur_file;
   struct list pthread_list; // For pThreads
+
+  // FOR USERTHREADS
+  /* For user-level locks and semaphores */
+  struct list user_locks;    /* List of struct user_lock_wrappers (synch.h) */
+  struct list user_semas;    /* List of struct user_sema_wrappers (synch.h) */
 };
 
 struct shared_data {
