@@ -765,7 +765,7 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
 
   sema_init(&pthread_sema, 0);
   // void* exec_[] = {&sf, &tf, arg, &pthread_sema}; // todo: possible bug might be sending arg and not &arg; should double check
-  void* exec_[] = {sf, tf, arg, &pthread_sema};
+  void* exec_[] = {sf, tf, arg, &pthread_sema}; // 
   // strlcat(char *dst, const char *src, size_t size); 
   // char name_helper[2] = {(char)(thread_current()->tid), '\0'};
   
@@ -818,7 +818,9 @@ static void start_pthread(void* exec_) {
     sema_init(&(curr -> user_sema), 0); // set to 0?
     curr->has_joined = false;
     curr->kernel_thread = thread_current();
+    curr->tid = curr->kernel_thread->tid; // necessary for when the kernel thread is exited but we still need the pthread wrapper
     // curr->kernel_thread->to_be_killed = false; // automatically set in to_be_killed
+    curr->terminated = false;
     add_pthread(thread_current(), curr);
 
     /* Initialize interrupt frame and load executable. */
@@ -950,12 +952,17 @@ tid_t pthread_join(tid_t tid) {
   struct pthread* p = find_pthread(curr, tid);
   if (p == NULL) return TID_ERROR;
   if (p->has_joined) return TID_ERROR;
+  if (p->terminated) { 
+    sema_down(&(p -> user_sema));
+    p->has_joined = true;
+    return p->tid;
+  }
   // if (p->kernel_thread->tid == tid) return TID_ERROR; // causes page error
   if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
   // wait on thread with TID to exit
   sema_down(&(p -> user_sema));
   p->has_joined = true;
-  return p->kernel_thread->tid;
+  return p->tid;
 }
 
 /* Free the current thread's resources. Most resources will
@@ -971,14 +978,13 @@ void pthread_exit(void) {
   // todo: edit for terminated stuff (track termination status w/o freeing info; see: thread_exit)
   struct thread* curr = thread_current();
   struct pthread* pthread_curr = find_pthread(curr, curr->tid);
-
+  if (pthread_curr->terminated) return;
   // deallocate the user stack by removing page directory mapping and freeing palloced page
   pagedir_clear_page(curr->pcb->pagedir, pthread_curr->user_stack);
   void *phys_addr = pagedir_get_page(curr->pcb->pagedir, pthread_curr->user_stack);
   palloc_free_page(phys_addr);
   //palloc_free_page(pthread_curr->user_stack);
-
-  if (pthread_curr->terminated) return; // might need to move till after clearing pages
+   // might need to move till after clearing pages
   pthread_curr->terminated = true;
   // remove from pthread_list and free pthread struct only in pthread_exit_main
   
@@ -1011,7 +1017,7 @@ void pthread_exit_main(void) {
   wake_up_threads();
   for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
     struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-    tid_t tid = p->kernel_thread->tid;
+    tid_t tid = p->tid;
     if (tid != designated) { // todo
     // if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) {
       pthread_join(tid);
@@ -1117,7 +1123,7 @@ struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these
   int size = list_size(pthread_list);
   for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
         struct pthread* p = list_entry(e, struct pthread, pthread_elem);
-        tid_t p_tid = p->kernel_thread->tid;
+        tid_t p_tid = p->tid;
         if (p_tid == tid) {
             return p;
         }

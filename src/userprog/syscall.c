@@ -499,7 +499,8 @@ tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
 tid_t sys_pthread_join(tid_t tid) { 
   tid_t ret = pthread_join(tid);
   struct pthread* p = find_pthread(thread_current(), tid);
-  if (p != NULL && ret != TID_ERROR) sema_down(&(p -> user_sema));
+  // if (p != NULL && ret != TID_ERROR) sema_down(&(p -> user_sema));
+  if (p != NULL && ret != TID_ERROR) sema_up(&(p -> user_sema));
   return ret;
 }
 

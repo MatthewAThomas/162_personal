@@ -56,6 +56,7 @@ struct pthread {
   bool has_joined;  // pthread_join should fail if called on a thread that has already                     
                     // been joined on
   bool terminated; // when thread_exit has been called without join happening first
+  tid_t tid;
 };
 
 /* project 1 process helper*/
