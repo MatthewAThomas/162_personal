@@ -288,7 +288,7 @@ static void start_process(void* start_cmd) {
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait(pid_t child_pid UNUSED) {
+int process_wait(pid_t child_pid) {
 
   struct process *pcb = thread_current() -> pcb;
   struct list *children = &(pcb -> children);
@@ -913,7 +913,7 @@ static void start_pthread(void* exec_) {
     // todo:
     // sema_up(&child_cmd->process_sema);
     // (not necessary here since no new executable loaded)
-
+    sema_up(setup_args[3]);
     thread_exit();
   }
 
@@ -953,15 +953,15 @@ tid_t pthread_join(tid_t tid) {
   if (p == NULL) return TID_ERROR;
   if (p->has_joined) return TID_ERROR;
   if (p->terminated) { 
-    sema_down(&(p -> user_sema));
+    // sema_down(&(p -> user_sema)); // already dead so sema_down would never happen
     p->has_joined = true;
     return p->tid;
   }
   // if (p->kernel_thread->tid == tid) return TID_ERROR; // causes page error
   if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
   // wait on thread with TID to exit
-  sema_down(&(p -> user_sema));
   p->has_joined = true;
+  sema_down(&(p -> user_sema));
   return p->tid;
 }
 
@@ -989,7 +989,7 @@ void pthread_exit(void) {
   // remove from pthread_list and free pthread struct only in pthread_exit_main
   
   // sema_up(&(cur->pcb->shared_data->wait_sema));
-  sema_up(&(pthread_curr->user_sema));
+  if (pthread_curr->has_joined) sema_up(&(pthread_curr->user_sema));
   
   // todo: remove any related waiters + free related locks for this
   thread_exit();
