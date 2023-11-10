@@ -29,4 +29,13 @@ tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg);
 tid_t sys_pthread_join(tid_t tid);
 void sys_pthread_exit(void) NO_RETURN;
 
+// User synchs syscalls
+bool sys_lock_init(void* lock);
+bool sys_lock_acquire(void* lock); // Should be a bool return val
+bool sys_lock_release(void* lock); // Should be a bool return val
+bool sys_sema_init(void* sema, int val);
+bool sys_sema_down(void* sema); // Should be a bool return val
+bool sys_sema_up(void* sema);   // Should be a bool return val
+tid_t get_tid(void);
+
 #endif /* userprog/syscall.h */

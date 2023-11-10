@@ -159,30 +159,30 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
 
   // FOR USERTHREADS
 
-  // else if (args[0] == SYS_LOCK_INIT) {
-  //   bool success = sys_lock_init(args[1]);
-  //   f->eax = (int) success;
-  // } 
-  // else if (args[0] == SYS_LOCK_ACQUIRE) {
-  //   bool success = sys_lock_acquire(args[1]);
-  //   f->eax = (int) success;
-  // } 
-  // else if (args[0] == SYS_LOCK_RELEASE) {
-  //   bool success = sys_lock_release(args[1]);
-  //   f->eax = (int) success;
-  // } 
-  // else if (args[0] == SYS_SEMA_INIT) {
-  //   bool success = sys_sema_init(args[1]);
-  //   f->eax = (int) success;
-  // } 
-  // else if (args[0] == SYS_SEMA_DOWN) {
-  //   bool success = sys_sema_down(args[1]);
-  //   f->eax = (int) success;
-  // }
-  // else if (args[0] == SYS_SEMA_UP) {
-  //   bool success = sys_sema_up(args[1]);
-  //   f->eax = (int) success;
-  // }
+  else if (args[0] == SYS_LOCK_INIT) {
+    bool success = sys_lock_init(args[1]);
+    f->eax = (int) success;
+  } 
+  else if (args[0] == SYS_LOCK_ACQUIRE) {
+    bool success = sys_lock_acquire(args[1]);
+    f->eax = (int) success;
+  } 
+  else if (args[0] == SYS_LOCK_RELEASE) {
+    bool success = sys_lock_release(args[1]);
+    f->eax = (int) success;
+  } 
+  else if (args[0] == SYS_SEMA_INIT) {
+    bool success = sys_sema_init(args[1], args[2]);
+    f->eax = (int) success;
+  } 
+  else if (args[0] == SYS_SEMA_DOWN) {
+    bool success = sys_sema_down(args[1]);
+    f->eax = (int) success;
+  }
+  else if (args[0] == SYS_SEMA_UP) {
+    bool success = sys_sema_up(args[1]);
+    f->eax = (int) success;
+  }
   
   // SYS_PT_EXIT,      /* Exits the current thread */
   // SYS_PT_JOIN,      /* Waits for thread to finish */
@@ -517,118 +517,138 @@ void sys_pthread_exit(void) {
 
 // FOR USERTHREADS
 
-// bool sys_lock_init(lock_t *lock) {
-//   check_valid_ptr(lock);
+bool sys_lock_init(void *lock) {
+  if (lock == NULL) return false;
 
-//   struct lock *kernel_lock = malloc(sizeof(struct lock));
-//   struct user_lock_wrapper *wrapper = malloc(sizeof(struct user_lock_wrapper));
-//   /* If either malloc fails, the lock initialization fails */
-//   if (!(kernel_lock && user_lock_wrapper)) {
-//     return false;
-//   }
+  check_valid_ptr(lock);
 
-//   lock_init(kernel_lock);
-//   wrapper -> has_been_acquired = false;
-//   wrapper -> user_lock = lock;
-//   wrapper -> kernel_lock = kernel_lock;
+  struct lock *kernel_lock = malloc(sizeof(struct lock));
+  struct user_lock_wrapper *wrapper = malloc(sizeof(struct user_lock_wrapper));
+  /* If either malloc fails, the lock initialization fails */
+  if (!(kernel_lock && wrapper)) {
+    if (!kernel_lock) free(wrapper);
+    if(!wrapper) free(kernel_lock);
+    return false;
+  }
 
-//   list_push_front(&thread_current()->user_locks, &wrapper->elem);
-//   return true;
-// }
+  lock_init(kernel_lock);
+  wrapper -> has_been_acquired = false;
+  wrapper -> user_lock = lock;
+  wrapper -> kernel_lock = kernel_lock;
 
-// bool sys_lock_acquire(lock_t *lock) {
-//   check_valid_ptr(lock);
+  list_push_front(&thread_current()->pcb->user_locks, &wrapper->elem);
+  return true;
+}
 
-//   struct thread *t = thread_current();
-//   struct list_elem *e;
-//   for (e = list_begin (&t->user_locks); e != list_end (&t->user_locks); e = list_next(e))
-//   {
-//     struct user_lock_wrapper *wrapper = list_entry (e, struct user_lock_wrapper, elem);
-//     if (wrapper->user_lock == lock) {
-//       if (wrapper->has_been_acquired)
-//         return false;
-//       lock_acquire(wrapper->kernel_lock);
-//       wrapper->has_been_acquired = true;
-//       return true;
-//     }
-//   }
-//   return false;
-// }
+bool sys_lock_acquire(void *lock) {
+  if (lock == NULL) return false;
 
-// bool sys_lock_release(lock_t *lock) {
-//   check_valid_ptr(lock);
+  check_valid_ptr(lock);
 
-//   struct thread *t = thread_current();
-//   struct list_elem *e;
-//   for (e = list_begin (&t->user_locks); e != list_end (&t->user_locks); e = list_next(e))
-//   {
-//     struct user_lock_wrapper *wrapper = list_entry (e, struct user_lock_wrapper, elem);
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&t->pcb->user_locks); e != list_end (&t->pcb->user_locks); e = list_next(e))
+  {
+    struct user_lock_wrapper *wrapper = list_entry (e, struct user_lock_wrapper, elem);
+    if (wrapper->user_lock == lock) {
+      if (wrapper->has_been_acquired)
+        return false;
+      lock_acquire(wrapper->kernel_lock);
+      wrapper->has_been_acquired = true;
+      return true;
+    }
+  }
+  return false; // todo: check condition if it can occur
+}
+
+bool sys_lock_release(void *lock) {
+  if (lock == NULL) return false;
+
+  check_valid_ptr(lock);
+
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&t->pcb->user_locks); e != list_end (&t->pcb->user_locks); e = list_next(e))
+  {
+    struct user_lock_wrapper *wrapper = list_entry (e, struct user_lock_wrapper, elem);
     
-//     if (wrapper->user_lock == lock) {
-//       lock_release(wrapper->kernel_lock);
+    if (wrapper->user_lock == lock) {
+      if (wrapper->kernel_lock->holder == thread_current()) {
+        lock_release(wrapper->kernel_lock);
+        wrapper->has_been_acquired = false;
+        return true;
+      }
+        
 
-//       free(wrapper->kernel_lock);
-//       list_remove(&wrapper->elem);
-//       free(wrapper);
+      // free(wrapper->kernel_lock);
+      // list_remove(&wrapper->elem); // remove from list of locks for a given process but not from all locks list
+      // free(wrapper);
+    }
+  }
+  return false;
+}
 
-//       return true;
-//     }
-//   }
-//   return false;
-// }
+bool sys_sema_init(void *sema, int val) {
+  if (sema == NULL) return false;
+  if (val < 0) return false;
 
-// bool sys_sema_init(sema_t *sema, int val) {
-//   check_valid_ptr(sema);
+  check_valid_ptr(sema);
 
-//   struct semaphore *kernel_sema = malloc(sizeof(struct semaphore));
-//   struct user_sema_wrapper *wrapper = malloc(sizeof(struct user_sema_wrapper));
-//   /* If either malloc fails, the lock initialization fails */
-//   if (!(kernel_sema && user_sema_wrapper)) {
-//     return false;
-//   }
+  struct semaphore *kernel_sema = malloc(sizeof(struct semaphore));
+  struct user_sema_wrapper *wrapper = malloc(sizeof(struct user_sema_wrapper));
+  /* If either malloc fails, the lock initialization fails */
+  if (!(kernel_sema && wrapper)) {
+    if (kernel_sema != NULL) free(kernel_sema);
+    if (wrapper != NULL) free(wrapper);
+    return false;
+  }
 
-//   sema_init(kernel_sema, val);
-//   wrapper -> user_sema = sema;
-//   wrapper -> kernel_sema = kernel_sema;
+  sema_init(kernel_sema, val);
+  wrapper -> user_sema = sema;
+  wrapper -> kernel_sema = kernel_sema;
 
-//   list_push_front(&thread_current()->user_semas, &wrapper->elem);
-//   return true;
-// }
+  list_push_front(&thread_current()->pcb->user_semas, &wrapper->elem);
+  return true;
+}
 
-// bool sys_sema_down(sema_t *sema) {
-//   check_valid_ptr(sema);
+bool sys_sema_down(void *sema) {
+  if (sema == NULL) return false;
 
-//   struct thread *t = thread_current();
-//   struct list_elem *e;
-//   for (e = list_begin (&t->user_semas); e != list_end (&t->user_semas); e = list_next(e))
-//   {
-//     struct user_sema_wrapper *wrapper = list_entry (e, struct user_sema_wrapper, elem);
-//     if (wrapper->user_sema == sema) {
-//       sema_down(wrapper->kernel_sema);
-//       return true;
-//     }
-//   }
-//   return false;
-// }
+  check_valid_ptr(sema);
 
-// bool sys_sema_up(sema_t *sema) {
-//   check_valid_ptr(sema);
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&t->pcb->user_semas); e != list_end (&t->pcb->user_semas); e = list_next(e))
+  {
+    struct user_sema_wrapper *wrapper = list_entry (e, struct user_sema_wrapper, elem);
+    if (wrapper->user_sema == sema) {
+      sema_down(wrapper->kernel_sema);
+      return true;
+    }
+  }
+  return false;
+}
 
-//   struct thread *t = thread_current();
-//   struct list_elem *e;
-//   for (e = list_begin (&t->user_semas); e != list_end (&t->user_semas); e = list_next(e))
-//   {
-//     struct user_sema_wrapper *wrapper = list_entry (e, struct user_sema_wrapper, elem);
+bool sys_sema_up(void *sema) {
+  if (sema == NULL) return false;
+
+  check_valid_ptr(sema);
+
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&t->pcb->user_semas); e != list_end (&t->pcb->user_semas); e = list_next(e))
+  {
+    struct user_sema_wrapper *wrapper = list_entry (e, struct user_sema_wrapper, elem);
     
-//     if (wrapper->user_sema == sema) {
-//       sema_up(wrapper->kernel_sema);
+    if (wrapper->user_sema == sema) {
+      sema_up(wrapper->kernel_sema);
 
-//       free(wrapper->kernel_sema);
-//       list_remove(&wrapper->elem);
-//       free(wrapper);
+      //free(wrapper->kernel_sema);
+      //list_remove(&wrapper->elem);
+      //free(wrapper);
 
-//       return true;
-//     }
-//   }
-//   return false;
-// }
+      return true;
+    }
+  }
+  return false;
+}
