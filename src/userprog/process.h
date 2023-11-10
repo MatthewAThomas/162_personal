@@ -57,6 +57,7 @@ struct pthread {
                     // been joined on
   bool terminated; // when thread_exit has been called without join happening first
   tid_t tid;
+  struct thread* waiter;
 };
 
 /* project 1 process helper*/
