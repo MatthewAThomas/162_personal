@@ -104,5 +104,6 @@ bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sf
 
 void add_pthread(struct thread* t, struct pthread* curr);
 struct pthread* find_pthread(struct thread* t, tid_t tid);
+void signal_pthread_death(void);
 
 #endif /* userprog/process.h */

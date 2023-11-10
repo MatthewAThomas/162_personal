@@ -9,6 +9,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+
+
+#include "userprog/process.h"
 #ifdef USERPROG
 #include "userprog/gdt.h"
 #endif
@@ -336,14 +339,23 @@ void intr_handler(struct intr_frame* frame) {
 
   /* Invoke the interrupt's handler. */
   handler = intr_handlers[frame->vec_no];
-  if (handler != NULL)
+  if (handler != NULL) {
     handler(frame);
+  }
   else if (frame->vec_no == 0x27 || frame->vec_no == 0x2f) {
     /* There is no handler, but this interrupt can trigger
          spuriously due to a hardware fault or hardware race
          condition.  Ignore it. */
   } else
     unexpected_interrupt(frame);
+
+  if (is_trap_from_userspace(frame)) {
+    // run after handler logic but before returning to user space
+    // how to check if thread was signaled to die? 
+    if (thread_current()->to_be_killed) {
+      frame->eip = (void (*)(void))pthread_exit;
+    }
+  }
 
   /* Complete the processing of an external interrupt. */
   if (external) {

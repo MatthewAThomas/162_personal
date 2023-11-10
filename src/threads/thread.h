@@ -95,6 +95,8 @@ struct thread {
   int effective_priority;    /* Effective priority for priority donation. Project 2 */
   struct semaphore *waiting; /* The semaphore of the lock that thread is waiting on. Project 2 */
   struct list locks_held;    /* List of lock semaphores held by the thread. Project 2 */ 
+  
+  bool to_be_killed; // used when process_exit is called to signal pthreads have to be killed
 
   // FOR USERTHREADS
   // /* For user-level locks and semaphores */

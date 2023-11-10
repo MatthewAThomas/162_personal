@@ -322,6 +322,8 @@ void process_exit(void) {
     NOT_REACHED();
   }
 
+  signal_pthread_death(); // might be better flagged elsewhere
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pcb->pagedir;
@@ -816,6 +818,7 @@ static void start_pthread(void* exec_) {
     sema_init(&(curr -> user_sema), 0); // set to 0?
     curr->has_joined = false;
     curr->kernel_thread = thread_current();
+    // curr->kernel_thread->to_be_killed = false; // automatically set in to_be_killed
     add_pthread(thread_current(), curr);
 
     /* Initialize interrupt frame and load executable. */
@@ -947,6 +950,7 @@ tid_t pthread_join(tid_t tid) {
   struct pthread* p = find_pthread(curr, tid);
   if (p == NULL) return TID_ERROR;
   if (p->has_joined) return TID_ERROR;
+  // if (p->kernel_thread->tid == tid) return TID_ERROR; // causes page error
   if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
   // wait on thread with TID to exit
   sema_down(&(p -> user_sema));
@@ -1119,4 +1123,14 @@ struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these
         }
     } 
   return NULL;
+}
+
+// Used when process_exit is called. Sets pthread flag to_be_killed to true for all pthreads. 
+// pthreads running kernel code are also killed once they return to userspace. 
+void signal_pthread_death(void) {
+  struct list *pthread_list = &(thread_current()->pcb->pthread_list);
+  for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
+        struct thread* t = list_entry(e, struct pthread, pthread_elem)->kernel_thread;
+        t->to_be_killed = true;
+    } 
 }
