@@ -961,6 +961,7 @@ tid_t pthread_join(tid_t tid) {
   if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
   // wait on thread with TID to exit
   p->has_joined = true;
+  p->waiter = curr;
   sema_down(&(p -> user_sema));
   return p->tid;
 }
@@ -989,7 +990,11 @@ void pthread_exit(void) {
   // remove from pthread_list and free pthread struct only in pthread_exit_main
   
   // sema_up(&(cur->pcb->shared_data->wait_sema));
-  if (pthread_curr->has_joined) sema_up(&(pthread_curr->user_sema));
+  if (pthread_curr->has_joined) { // changes for join-exit-1
+    sema_up(&(pthread_curr->user_sema));
+    // thread_unblock(pthread_curr->waiter);
+    pthread_curr->waiter = NULL;
+  }
   
   // todo: remove any related waiters + free related locks for this
   thread_exit();

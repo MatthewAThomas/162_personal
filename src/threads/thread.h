@@ -97,7 +97,7 @@ struct thread {
   struct list locks_held;    /* List of lock semaphores held by the thread. Project 2 */ 
   
   bool to_be_killed; // used when process_exit is called to signal pthreads have to be killed
-
+  bool is_pthread;
   // FOR USERTHREADS
   // /* For user-level locks and semaphores */
   // struct list user_locks;    /* List of struct user_lock_wrappers (synch.h) */
