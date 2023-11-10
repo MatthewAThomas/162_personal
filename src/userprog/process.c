@@ -155,6 +155,9 @@ static void start_process(void* start_cmd) {
     if(child_cmd->has_exec == false) list_init(child_cmd -> children);
     list_push_front(child_cmd -> children, &(new_shared_data -> elem));
     new_pcb->has_exec = true;
+
+    list_init(&new_pcb->user_locks);
+    list_init(&new_pcb->user_semas);
   }
 
   char *token, *save_ptr;
@@ -950,7 +953,11 @@ tid_t pthread_join(tid_t tid) {
 
   struct thread* curr = thread_current();
   struct pthread* p = find_pthread(curr, tid);
-  if (p == NULL) return TID_ERROR;
+  if (curr->pcb->main_thread->tid == tid) {
+    // put to sleep and wake up on pthread_exit_main
+  } else if (p == NULL) {
+    return TID_ERROR;
+  }
   if (p->has_joined) return TID_ERROR;
   if (p->terminated) { 
     // sema_down(&(p -> user_sema)); // already dead so sema_down would never happen
