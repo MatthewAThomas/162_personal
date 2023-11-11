@@ -21,6 +21,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 
 static struct semaphore temporary;
@@ -146,6 +147,10 @@ static void start_process(void* start_cmd) {
     init_table(new_fd_table);
     init_shared_data(new_shared_data);
     list_init(&(new_pcb->pthread_list)); // for pthreads
+    sema_init(&(new_pcb->pthread_exit_sema), 0);
+    list_init(&(new_pcb->joinable_pthreads));
+
+    size_t size = list_size(&(new_pcb->pthread_list));
   
     new_pcb -> fd_table = new_fd_table;
     new_pcb -> shared_data = new_shared_data;
@@ -325,7 +330,24 @@ void process_exit(void) {
     NOT_REACHED();
   }
 
+  wake_up_pthreads_joined_on_main();
+  wake_up_pthread_waiters();
   signal_pthread_death(); // might be better flagged elsewhere
+  free_user_semas();
+  free_user_locks();
+
+  struct list *pthread_list = &(cur->pcb->pthread_list);
+
+  while(!list_empty (pthread_list)) {
+    // struct pthread* p = list_pop_front(pthread_list);
+    struct list_elem* e = list_pop_front(pthread_list);
+    struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+    if (!p->terminated) {
+      // block till pthread dies
+      sema_down(&(cur->pcb->pthread_exit_sema));
+    }
+    free(p);
+  }
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -824,7 +846,14 @@ static void start_pthread(void* exec_) {
     curr->tid = curr->kernel_thread->tid; // necessary for when the kernel thread is exited but we still need the pthread wrapper
     // curr->kernel_thread->to_be_killed = false; // automatically set in to_be_killed
     curr->terminated = false;
-    add_pthread(thread_current(), curr);
+    curr->waiting_on = NULL;
+    curr->main_thread = curr->kernel_thread->pcb->main_thread;
+    
+    size_t size = list_size(&(curr->kernel_thread->pcb->pthread_list));
+    list_push_back(&(curr->kernel_thread->pcb->pthread_list), &(curr->pthread_elem));
+    
+    size = list_size(&(curr->kernel_thread->pcb->pthread_list));
+    list_push_back(&(curr->kernel_thread->pcb->joinable_pthreads), &(curr->joinable_pthread_elem));
 
     /* Initialize interrupt frame and load executable. */
     memset(&if_, 0, sizeof if_);
@@ -925,6 +954,8 @@ static void start_pthread(void* exec_) {
   // sema_up(&child_cmd->process_sema);
   sema_up(setup_args[3]);
 
+  size_t size = list_size(&(curr->kernel_thread->pcb->pthread_list));
+
   thread_yield();
 
   /* Start the user process by simulating a return from an
@@ -952,26 +983,37 @@ tid_t pthread_join(tid_t tid) {
   // return exit_status;
 
   struct thread* curr = thread_current();
-  struct pthread* p = find_pthread(curr, tid);
-  if (curr->pcb->main_thread->tid == tid) {
-    // put to sleep and wake up on pthread_exit_main
-  } else if (p == NULL) {
+  struct pthread* p = get_joinable_pthread(curr, tid); // make a find_joinable_pthread struct 
+  //struct pthread* p = find_pthread(curr, tid);
+  //size_t size = list_size(&(p->kernel_thread->pcb->pthread_list));
+
+  if (p == NULL) {
     return TID_ERROR;
   }
-  if (p->has_joined) return TID_ERROR;
-  if (p->terminated) { 
+  else if (p->has_joined) {
+    return TID_ERROR;
+  }
+  else if (curr->pcb->main_thread != p->main_thread) {
+    return TID_ERROR; // need to be from same process
+    // what if already terminated but not from same thread?
+    // accounts for that
+  }
+  else if (p->terminated) { 
     // sema_down(&(p -> user_sema)); // already dead so sema_down would never happen
     p->has_joined = true;
     return p->tid;
   }
   // if (p->kernel_thread->tid == tid) return TID_ERROR; // causes page error
-  if (curr->pcb->main_thread != p->kernel_thread->pcb->main_thread) return TID_ERROR; // need to be from same process
   // wait on thread with TID to exit
   p->has_joined = true;
-  p->waiter = curr;
+  list_remove(&(p->joinable_pthread_elem));
+  p->waiting_on = p->kernel_thread;
   sema_down(&(p -> user_sema));
+  p->waiting_on = NULL;;
   return p->tid;
 }
+
+
 
 /* Free the current thread's resources. Most resources will
    be freed on thread_exit(), so all we have to do is deallocate the
@@ -995,14 +1037,19 @@ void pthread_exit(void) {
    // might need to move till after clearing pages
   pthread_curr->terminated = true;
   // remove from pthread_list and free pthread struct only in pthread_exit_main
-  
-  // sema_up(&(cur->pcb->shared_data->wait_sema));
-  if (pthread_curr->has_joined) { // changes for join-exit-1
+
+  // if (pthread_curr->has_joined) { // changes for join-exit-1
+  //   sema_up(&(pthread_curr->user_sema));
+  // }
+  if (pthread_curr->has_joined) {
     sema_up(&(pthread_curr->user_sema));
-    // thread_unblock(pthread_curr->waiter);
-    pthread_curr->waiter = NULL;
   }
-  
+  else if (pthread_curr->kernel_thread->to_be_killed) {
+    struct semaphore* sema = &(pthread_curr->kernel_thread->pcb->pthread_exit_sema);
+    sema_up(sema);
+  }
+
+
   // todo: remove any related waiters + free related locks for this
   thread_exit();
   // current issue 
@@ -1024,24 +1071,35 @@ void pthread_exit_main(void) {
   // todo: wake all waiters
   // user level lock (sema, etc.) get ID to grab it (like in FD table)
   // lock_acquire(&global_lock);
-  struct list pthread_list = thread_current()->pcb->pthread_list;
+  struct list* pthread_list = &(thread_current()->pcb->pthread_list);
+
   tid_t designated = thread_current()->tid;
-  wake_up_threads();
-  for (struct list_elem* e = list_begin(&pthread_list); e != list_end(&pthread_list); e = list_next(e)) {
+  size_t size = list_size(&(thread_current()->pcb->pthread_list));
+
+  // wake up all waiters
+  wake_up_pthread_waiters();
+  size = list_size(&(thread_current()->pcb->pthread_list));
+
+  while(!list_empty(pthread_list)) {
+    size = list_size(pthread_list); // why does it error here???
+    struct list_elem* e = list_pop_front(pthread_list);
     struct pthread* p = list_entry(e, struct pthread, pthread_elem);
     tid_t tid = p->tid;
+    if (p->waiting_on == p->main_thread) {
+      sema_up(&(p->user_sema));
+    }
     if (tid != designated) { // todo
     // if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) {
       pthread_join(tid);
     }
-    list_remove(&(p->pthread_elem));
+    // list_remove(&(p->pthread_elem)); // editing a list while iterating causes problems
+    // free before joining or it's never called
     free(p);
-  } 
+  }
 
-  
-  struct pthread* p = list_entry(list_pop_front(&pthread_list), struct pthread, pthread_elem);
+  // struct pthread* p = list_entry(list_pop_front(&pthread_list), struct pthread, pthread_elem);
   ASSERT(list_empty(&pthread_list));
-  free(p);
+  // free(p); // leftover thread is NOT pthread; main thread = kernel thread 
   // lock_release(&global_lock);
   // todo: in pthread exit syscall handler, before exiting, check if only 1 thread / lock remaining (can use cond_wait condition variable)
   process_exit();
@@ -1126,13 +1184,9 @@ void free_table(struct fd_table *fd_table) {
 } 
 
 
-void add_pthread(struct thread* t, struct pthread* curr) {
-  list_push_back(&(t->pcb->pthread_list), &(curr->pthread_elem));
-}
-
 struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these to use generics instead
   struct list *pthread_list = &(t->pcb->pthread_list);
-  int size = list_size(pthread_list);
+  // size_t size = list_size(pthread_list);
   for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
         struct pthread* p = list_entry(e, struct pthread, pthread_elem);
         tid_t p_tid = p->tid;
@@ -1148,7 +1202,85 @@ struct pthread* find_pthread(struct thread* t, tid_t tid) { // can rewrite these
 void signal_pthread_death(void) {
   struct list *pthread_list = &(thread_current()->pcb->pthread_list);
   for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
-        struct thread* t = list_entry(e, struct pthread, pthread_elem)->kernel_thread;
+      struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+      if (!p->terminated) { // if the kernel thread has already been exited, then do nothing for this pthread
+        struct thread* t = p->kernel_thread;
         t->to_be_killed = true;
+        release_all_locks_held(t);
+        //thread_unblock(t);
+      }
     } 
+}
+
+
+// Wakes up the pthreads that were joined on the main thread
+void wake_up_pthreads_joined_on_main(void) {
+  struct thread* curr = thread_current(); 
+  struct thread* main_thread = curr->pcb->main_thread;
+  struct list *pthread_list = &(curr->pcb->pthread_list);
+  // size_t size = list_size(pthread_list);
+  for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
+    struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+    if (p->waiting_on == main_thread) { 
+    // if the kernel thread has already been exited, then do nothing for this pthread
+      if (!p->terminated) {
+        p->waiting_on = NULL;
+        sema_up(&(p->user_sema));
+        // thread_unblock(p->kernel_thread); // does it automatically schedule them?
+      }
+    } 
+  }
+}
+
+void wake_up_pthread_waiters(void) { // from joins
+  struct list *pthread_list = &(thread_current()->pcb->pthread_list);
+  // size_t size = list_size(pthread_list);
+  for (struct list_elem* e = list_begin(pthread_list); e != list_end(pthread_list); e = list_next(e)) {
+    struct pthread* p = list_entry(e, struct pthread, pthread_elem);
+    if (!p->terminated && p->waiting_on != NULL) {
+      p->waiting_on = NULL;
+      sema_up(&(p->user_sema));
+      // thread_unblock(p->kernel_thread); // does it automatically schedule them?
+    } 
+  }
+}
+
+// To be called by main thread in process_exit
+void free_user_semas(void) {
+  struct process* p = thread_current()->pcb;
+  while (!list_empty(&(p->user_semas))) {
+    struct list_elem *e = list_pop_front(&(p->user_semas));
+    struct user_sema_wrapper* sema_wrapper = list_entry(e, struct user_sema_wrapper, elem);
+    if (sema_wrapper->kernel_sema != NULL) {
+      free(sema_wrapper->kernel_sema);
+    }
+    free(sema_wrapper);
+  }
+}
+
+// To be called by main thread in process_exit
+void free_user_locks(void) {
+  struct process* p = thread_current()->pcb;
+  while (!list_empty(&(p->user_locks))) {
+    struct list_elem *e = list_pop_front(&(p->user_locks));
+    struct user_lock_wrapper* lock_wrapper = list_entry(e, struct user_lock_wrapper, elem);
+    if (lock_wrapper->kernel_lock != NULL) {
+      free(lock_wrapper->kernel_lock);
+    }
+    free(lock_wrapper);
+  }
+} // todo: check if that was called correctly
+
+// Optimization for pthread_join.
+struct pthread* get_joinable_pthread(struct thread* t, tid_t tid) {
+  struct list *joinable_list = &(t->pcb->joinable_pthreads);
+  // size_t size = list_size(pthread_list);
+  for (struct list_elem* e = list_begin(joinable_list); e != list_end(joinable_list); e = list_next(e)) {
+    struct pthread* p = list_entry(e, struct pthread, joinable_pthread_elem);
+    tid_t p_tid = p->tid;
+    if (p_tid == tid) {
+      return p;
+    }
+  } 
+  return NULL;
 }

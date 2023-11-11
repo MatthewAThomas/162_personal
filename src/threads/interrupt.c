@@ -10,7 +10,7 @@
 #include "threads/vaddr.h"
 #include "devices/timer.h"
 
-
+#include "threads/synch.h"
 #include "userprog/process.h"
 #ifdef USERPROG
 #include "userprog/gdt.h"
@@ -354,6 +354,7 @@ void intr_handler(struct intr_frame* frame) {
     // how to check if thread was signaled to die? 
     if (thread_current()->to_be_killed) {
       frame->eip = (void (*)(void))pthread_exit;
+      release_all_locks_held(thread_current());
     }
   }
 
