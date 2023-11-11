@@ -381,7 +381,7 @@ void process_exit(void) {
   }
   // todo: check that open pthreads are closed / freed
   cur->pcb = NULL;
-  free(pcb_to_free);
+  free(pcb_to_free); // crashes here
   thread_exit();
 }
 
@@ -1090,15 +1090,15 @@ void pthread_exit_main(void) {
     }
     if (tid != designated) { // todo
     // if (p->kernel_thread->tid != designated && is_trap_from_userspace(struct intr_frame* frame)) {
-      pthread_join(tid);
+      tid_t ret = pthread_join(tid);
     }
     // list_remove(&(p->pthread_elem)); // editing a list while iterating causes problems
     // free before joining or it's never called
-    free(p);
+    // free(p);
   }
 
   // struct pthread* p = list_entry(list_pop_front(&pthread_list), struct pthread, pthread_elem);
-  ASSERT(list_empty(&pthread_list));
+  // ASSERT(list_empty(&pthread_list));
   // free(p); // leftover thread is NOT pthread; main thread = kernel thread 
   // lock_release(&global_lock);
   // todo: in pthread exit syscall handler, before exiting, check if only 1 thread / lock remaining (can use cond_wait condition variable)
