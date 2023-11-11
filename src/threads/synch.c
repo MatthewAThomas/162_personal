@@ -562,3 +562,16 @@ void update_priority(struct list *locks_held_ptr) {
     donate_priority(lock_sema);
   }
 }
+
+
+
+/* Releases all the locks a thread holds. Called when exiting pthreads from process_exit. */
+void release_all_locks_held(struct thread* curr) {
+  curr->waiting = NULL;
+  for (struct list_elem *e = list_begin(&(curr->locks_held)); e != list_end(&(curr->locks_held)); e = list_next(e)) {
+    struct semaphore *lock = list_entry(e, struct semaphore, elem);
+    lock->holder = NULL;
+    list_remove(&lock->elem);
+    lock_sema_up(lock);
+  }
+} // todo: check if that was called correctly

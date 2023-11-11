@@ -52,6 +52,7 @@ void lock_acquire(struct lock*);
 bool lock_try_acquire(struct lock*);
 void lock_release(struct lock*);
 bool lock_held_by_current_thread(const struct lock*);
+void release_all_locks_held(struct thread* curr);
 
 /* Priority donation. Project 2 */
 void donate_priority(struct semaphore *lock_sema); // Donate priority thread holding lock_sema
@@ -81,6 +82,7 @@ void rw_lock_init(struct rw_lock*);
 void rw_lock_acquire(struct rw_lock*, bool reader);
 void rw_lock_release(struct rw_lock*, bool reader);
 
+
 /* Optimization barrier.
 
    The compiler will not reorder operations across an
@@ -89,3 +91,4 @@ void rw_lock_release(struct rw_lock*, bool reader);
 #define barrier() asm volatile("" : : : "memory")
 
 #endif /* threads/synch.h */
+

@@ -39,6 +39,10 @@ struct process {
   /* For user-level locks and semaphores */
   struct list user_locks;    /* List of struct user_lock_wrappers (synch.h) */
   struct list user_semas;    /* List of struct user_sema_wrappers (synch.h) */
+
+  // struct list join_pthreads; /* List of pthreads that joined on the main thread. */
+  struct semaphore pthread_exit_sema; // Used when process_exit is called without calling pthread_exit_main
+  struct list joinable_pthreads;
 };
 
 struct shared_data {
@@ -54,6 +58,7 @@ struct shared_data {
 
 struct pthread {
   struct list_elem pthread_elem; // for pthread_list
+  struct list_elem joinable_pthread_elem; // 
   uint8_t* user_stack;
   struct thread* kernel_thread; 
   struct semaphore user_sema; // used in joins
@@ -62,7 +67,8 @@ struct pthread {
                     // been joined on
   bool terminated; // when thread_exit has been called without join happening first
   tid_t tid;
-  struct thread* waiter;
+  struct thread* waiting_on; // used in joins
+  struct thread* main_thread; // used in joins when pthread is terminated but process not exited
 };
 
 /* project 1 process helper*/
@@ -109,8 +115,13 @@ void free_table(struct fd_table *fd_table);
 
 bool setup_thread(void (**eip)(void), void** esp, struct pthread* curr, void* sfun);
 
-void add_pthread(struct thread* t, struct pthread* curr);
 struct pthread* find_pthread(struct thread* t, tid_t tid);
 void signal_pthread_death(void);
+void wake_up_pthreads_joined_on_main(void);
+void wake_up_pthread_waiters(void);
+
+void free_user_semas(void);
+void free_user_locks(void);
+struct pthread* get_joinable_pthread(struct thread* t, tid_t tid);
 
 #endif /* userprog/process.h */
