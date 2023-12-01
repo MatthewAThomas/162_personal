@@ -7,6 +7,8 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 
+// Adding a new commit to Final_Proj_Threads to make sure it remains it doesnt get modified by what Im about to do
+
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
