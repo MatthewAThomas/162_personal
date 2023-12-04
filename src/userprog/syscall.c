@@ -175,7 +175,21 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int e = sys_sum_to_e(n);
     f -> eax = e;
   }
-
+  else if (args[0] == SYS_CHDIR) { // locks? only if changing things
+    f->eax = sys_chdir(args[1]);
+  }
+  else if (args[0] == SYS_MKDIR) {
+    f->eax = sys_mkdir(args[1]);
+  }
+  else if (args[0] == SYS_READDIR) {
+    f->eax = sys_readdir(args[1]);
+  }
+  else if (args[0] == SYS_ISDIR) {
+    f->eax = sys_isdir(args[1]);
+  }
+  else if (args[0] == SYS_INUMBER) {
+    f->eax = sys_inumber(args[1]);
+  }
   return;
 }
 
@@ -578,3 +592,52 @@ int sys_wait(pid_t pid) {
   }
 */
   
+
+/* Changes the current working directory of the process to dir, which may be relative or absolute. 
+Returns true if successful, false on failure. 
+*/
+bool sys_chdir(char* dir) {
+  check_valid_ptr((void *) cmd_line);
+
+}
+
+/* Creates the directory named dir, which may be relative or absolute. Returns true if successful, false on failure. 
+Fails if dir already exists or if any directory name in dir, besides the last, does not already exist. 
+That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
+*/
+bool sys_mkdir(char* dir) {
+  check_valid_ptr((void *) cmd_line);
+
+}
+
+
+/* Reads a directory entry from file descriptor fd, which must represent a directory. If successful, stores the null-terminated file name in name, which must have room for READDIR_MAX_LEN + 1 bytes, and returns true. If no entries are left in the directory, returns false.
+. and .. should not be returned by readdir
+If the directory changes while it is open, then it is acceptable for some entries not to be read at all or to be read multiple times. Otherwise, each directory entry should be read once, in any order.
+READDIR_MAX_LEN is defined in lib/user/syscall.h. If your file system supports longer file names than the basic file system, you should increase this value from the default of 14.
+*/
+bool sys_readdir(int fd, char* name) {
+  check_valid_ptr((void *) cmd_line);
+
+}
+
+
+/* Returns true if fd represents a directory, false if it represents an ordinary file. */
+bool sys_isdir(int fd) {
+  struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+  if (file_desc == NULL) {
+    return false;
+  }
+  return file_desc->is_dir;
+}
+
+
+/*
+Returns the inode number of the inode associated with fd, which may represent an ordinary file or a directory.
+An inode number persistently identifies a file or directory. It is unique during the file’s existence. In Pintos, the sector number of the inode is suitable for use as an inode number.
+We have provided the ls and mkdir user programs, which are straightforward once the above syscalls are implemented. We have also provided pwd, which is not so straightforward. The shell program implements cd internally.
+The pintos extract and pintos append commands should now accept full path names, assuming that the directories used in the paths have already been created. This should not require any significant extra effort on your part.
+*/
+int sys_inumber(int fd) {
+
+}

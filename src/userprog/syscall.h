@@ -34,4 +34,14 @@ pid_t sys_exec(char* cmd_line); // const // change
 // int sys_exec(const char* cmd_line);
 int sys_wait(int pid); // change
 
+
+
+
+bool sys_chdir(char* dir);
+bool sys_mkdir(char* dir);
+bool sys_readdir(int fd, char* name);
+bool sys_isdir(int fd);
+int sys_inumber(int fd)
+
+
 #endif /* userprog/syscall.h */
