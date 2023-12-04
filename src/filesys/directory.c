@@ -10,6 +10,10 @@
 struct dir {
   struct inode* inode; /* Backing store. */
   off_t pos;           /* Current position. */
+
+  struct dir* parent; /* Parent directory. */
+  struct list children;
+  struct list_elem elem; /* Used to add to list of parent directory's children. */
 };
 
 /* A single directory entry. */
@@ -18,6 +22,26 @@ struct dir_entry {
   char name[NAME_MAX + 1];     /* Null terminated file name. */
   bool in_use;                 /* In use or free? */
 };
+
+struct dir* ROOT_DIR;
+
+/* Checks that the given name is a valid absolute path. */
+bool validate_abs_dir(const char* name) {
+
+}
+
+/* Checks that the given name is a valid relative (based on CWD) path. */
+bool validate_rel_dir(const char* name) {
+
+}
+
+
+char* convert_to_abs_path() {
+  // have it stored or develop from root?
+  // make it a linked list --> go from backwards up
+  // convert . and .. to actual paths 
+}
+
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -58,6 +82,7 @@ void dir_close(struct dir* dir) {
     inode_close(dir->inode);
     free(dir);
   }
+  // TODO: empty the lists and everything
 }
 
 /* Returns the inode encapsulated by DIR. */
