@@ -24,13 +24,10 @@
 #include <list.h> 
 #include "filesys/file.h"
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-
-//struct shared_data* find_shared_data(struct list children, int pid);
 
 
 /* Initializes user programs in the system by ensuring the main
@@ -69,7 +66,6 @@ pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  // sema_init(&temporary, 0);
   // Todo: need to prevent executable from being edited with file_deny_write
 
   // Make a copy of FILE_NAME.
@@ -104,14 +100,16 @@ pid_t process_execute(const char* file_name) {
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
   
+  /* Down the process_sema; wait for child process to finish loading */
+  sema_down(&(start_cmd.process_sema));
+  
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
 
-  /* Down the process_sema; wait for child process to finish loading */
-  sema_down(&(start_cmd.process_sema));
-
   /* Removes the front element from LIST and returns it.
    Undefined behavior if LIST is empty before removal. */
+  // Parent process access shared data using find_share_data function
+  // if the child process was not created successfully it means start_process has failed
   struct shared_data *child_data = find_shared_data(&(thread_current() -> pcb -> children), tid);
   if (child_data == NULL) {
     return -1;
@@ -136,6 +134,9 @@ static void start_process(void* start_cmd) {
   // dumplist &all_list shared_data elem
   // dumplist &all_list thread allelem
   struct thread* t = thread_current(); // use tid as pid
+  if(t->tid >= 20) {
+    printf("whats happening at 21");
+  }
   struct intr_frame if_;
   bool success, pcb_success;
   bool fd_table_success;
@@ -284,7 +285,6 @@ static void start_process(void* start_cmd) {
 
   /* Handle failure with successful fd_table malloc. Must free fd_table*/
   if (!success) {
-
     if (fd_table_success) {
       free_table(t->pcb->fd_table);
     }
@@ -311,7 +311,6 @@ static void start_process(void* start_cmd) {
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
   if (!success) {
-    //sema_up(&temporary);
     thread_exit();
   }
 
@@ -336,6 +335,9 @@ static void start_process(void* start_cmd) {
    does nothing. */
 int process_wait(pid_t child_pid UNUSED) {
 
+  if(child_pid == 22) {
+    printf("print all the threads\n");
+  }
   struct process *pcb = thread_current() -> pcb;
   struct list *children = &(pcb -> children);
 
@@ -352,6 +354,7 @@ int process_wait(pid_t child_pid UNUSED) {
   }
 
   sema_down(&(child_data -> wait_sema));
+
   int exit_status = child_data -> exit_code;
 
   return exit_status;
@@ -389,30 +392,30 @@ void process_exit(void) {
      If this happens, then an unfortuantely timed timer interrupt
      can try to activate the pagedir, but it is now freed memory */
   struct process* pcb_to_free = cur->pcb;
+  
   sema_up(&(cur->pcb->shared_data->wait_sema));
 
   // free all 
-  // ADDED
   free_table(pcb_to_free->fd_table);
   file_allow_write(pcb_to_free->cur_file);
   file_close(pcb_to_free->cur_file);
-  // free(pcb_to_free->main_thread);
-  pcb_to_free->shared_data->ref_count -= 1; // change
-  if (pcb_to_free->shared_data->ref_count == 0) { // likely not created in the first place with malloc
-    free(pcb_to_free->shared_data);
+
+  // decrement child
+  if(!list_empty(&(pcb_to_free->children))) {
+    decrement_shared_data(&(pcb_to_free->children));
   }
+
+  // decrement its own ref count
+  pcb_to_free->shared_data->ref_count -= 1; // change
+  // if (pcb_to_free->shared_data->ref_count == 0) { 
+  //   free(pcb_to_free->shared_data);
+  // }
 
   // for sake of not having memory leaks for now, freeing shared data without paying attention to children processes
   // END ADDED
   cur->pcb = NULL;
   free(pcb_to_free);
 
-  //struct process* new_pcb = calloc(sizeof(struct process), 1); // TODO: probably need to do calloc here too
-  //Allocates file descriptor table on the heap to avoid stack overflow
-  // need to free shared data, fd table contents, etc.
-  
-
-  //sema_up(&temporary);
   thread_exit();
 }
 
@@ -748,18 +751,17 @@ void init_shared_data(struct shared_data* shared_data) {
   shared_data -> waited_on = false; 
 }
 
-// /* Takes a pid and finds the corresponding process struct */
-// struct process *find_process(int pid) {
-//   struct list_elem* e;
-//   struct list *all_list_ptr = get_all_list();
-//   for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
-//     struct thread* t = list_entry(e, struct thread, allelem);
-//     struct process *pcb = t -> pcb;
-//     if (!pcb || !(pcb -> shared_data)) continue; 
-//     if ((pcb -> shared_data -> pid) == pid) return pcb;
-//   }
-//   return NULL;
-// }
+void decrement_shared_data(struct list *children) {
+  struct list_elem* e;
+  struct list *all_list_ptr = children;
+  for (e = list_begin(all_list_ptr); e != list_end(all_list_ptr); e = list_next(e)) {
+    struct shared_data* shared_data = list_entry(e, struct shared_data, elem); // c
+    if (shared_data != NULL) {
+      shared_data->ref_count = shared_data->ref_count -1;
+    }
+  }
+  return NULL;
+}
 
 struct shared_data *find_shared_data(struct list *children, int pid) {
   struct list_elem* e;

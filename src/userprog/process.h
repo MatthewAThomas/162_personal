@@ -31,7 +31,7 @@ struct process {
 
   struct fd_table* fd_table; /* Pointer to the FD table. */
 
-  struct list children; /* Simon added lst */
+  struct list children; /* List of children's shared_data */
   struct semaphore list_sema;  
   struct shared_data* shared_data;
   bool has_exec;

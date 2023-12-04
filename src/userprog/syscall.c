@@ -163,15 +163,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       // printf("System call number: %d\n", args[0]);
   }
   else if (args[0] == SYS_EXEC) {
-    // printf("System call number: %d\n", args[0]);
-    // char *cmd_line = args[1];
-    // pid_t pid = process_execute(cmd_line);
-    // f->eax = pid;
-    // // block until load is complete
-    // sema_down(&thread_current()->pcb->shared_data->child_load_sema);
-    // return;
-    // need sanitizing :)
-
     char* cmd_line = (char*)args[1];
     f -> eax = sys_exec(cmd_line);
   }
