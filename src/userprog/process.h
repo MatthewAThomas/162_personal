@@ -36,6 +36,7 @@ struct process {
   struct shared_data* shared_data;
   bool has_exec;
   struct file* cur_file;
+  struct dir* cwd; 
   //bool has_called_exit = false;
 };
 

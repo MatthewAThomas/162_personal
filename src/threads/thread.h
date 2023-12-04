@@ -100,6 +100,7 @@ struct thread {
 
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
+  struct dir* parent_cwd;
 };
 
 /* Types of scheduler that the user can request the kernel
@@ -125,7 +126,7 @@ void thread_tick(void);
 void thread_print_stats(void);
 
 typedef void thread_func(void* aux);
-tid_t thread_create(const char* name, int priority, thread_func*, void*);
+tid_t thread_create(const char* name, int priority, thread_func*, void*, struct dir* parent);
 
 void thread_block(void);
 void thread_unblock(struct thread*);

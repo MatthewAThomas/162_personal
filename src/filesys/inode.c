@@ -9,6 +9,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define INDIRECT_BLOCK_CNT 128
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -18,8 +19,8 @@ struct inode_disk {
   // 4 + 4 + 496 + 4 + 4 = 512
   off_t length;         /* File size in bytes. */ //4
   unsigned magic;       /* Magic number. */ //4
-  block_sector_t dp[123];         
-  block_sector_t ip; // pointer to direct blocks
+  block_sector_t dp[123]; // typedef uint32_t block_sector_t;        
+  block_sector_t ip;  // block index
   block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
 };
@@ -44,19 +45,46 @@ struct inode {
    POS. */
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
-  return -1;
-  // pos is in bytes
-  // if (pos <= inode->data.length - 2*512) {
-  //   return inode->data[0] + pos / BLOCK_SECTOR_SIZE
-  // }
+    // pos is in bytes
+  if (pos < inode->data.length) {
+    // Calculate the index of the direct block based on the position
+    int block_index = pos / BLOCK_SECTOR_SIZE;
 
-  // if (pos > inode->data.length - 2*512 && pos ) {
-  //   return inode->data
-  // }
-  // if (pos < inode->data.length)
-  //   return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  // else
-  //   return -1;
+    // Check if the index is within the range of direct pointers
+    if (block_index < 123) {
+      return inode->data.dp[block_index];
+    }
+
+    // Add logic for handling indirect and doubly indirect pointers if needed
+    if (block_index < 123 + INDIRECT_BLOCK_CNT) {
+      int indirect_index = block_index - 123;
+      block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+
+      // Im sure it is just indirect_block without pointer
+      block_read(fs_device, inode->data.ip, indirect_block);
+      return indirect_block[indirect_index];
+    }
+
+    if (block_index < 123 + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
+      // Calculate the indices within the doubly indirect block
+      int doubly_indirect_index = (block_index - 123 - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+      int doubly_indirect_offset = (block_index - 123 - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+
+      // Read the doubly indirect block
+      block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
+      block_read(fs_device, inode->data.dip, doubly_indirect_block);
+
+      // Read the indirect block from the doubly indirect block
+      block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+      block_read(fs_device, doubly_indirect_block[doubly_indirect_index], indirect_block);
+
+      // Return the sector from the indirect block
+      return indirect_block[doubly_indirect_offset];
+    }
+  }
+
+  // Return -1 for cases where the position is beyond the allocated space
+  return -1;
 }
 
 /* List of open inodes, so that opening a single inode twice
