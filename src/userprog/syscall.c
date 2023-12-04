@@ -292,7 +292,7 @@ int sys_read(int fd, void* buffer, unsigned size) {
   if (file_desc == NULL) {
     return -1;
   }
-
+  if (file_desc->is_dir) return -1; // can't read or write on dir
   // int total = file_read(file_desc->file, str, size);
   // int x = total + 0;
   // free(str);
@@ -353,7 +353,7 @@ int sys_write(int fd, void* buffer, unsigned size) {
       // need to exit kernel
       return -1;
     }
-
+    if (file_desc->is_dir) return -1; // can't read or write on directory
     struct file *file = get_file_pointer(fd_table, fd);
 
     // check if file is open (maybe function in file-descriptor.c) return -1 if not
@@ -596,9 +596,13 @@ int sys_wait(pid_t pid) {
 /* Changes the current working directory of the process to dir, which may be relative or absolute. 
 Returns true if successful, false on failure. 
 */
-bool sys_chdir(char* dir) {
+bool sys_chdir(char* path) {
   check_valid_ptr((void *) cmd_line);
-
+  if (dir == NULL || strlen(dir) == 0) return false; 
+  struct dir* dir = get_dir_from_path(path);
+  if (dir == NULL) return false;
+  thread_current()->pcb->cwd = dir;
+  return true;
 }
 
 /* Creates the directory named dir, which may be relative or absolute. Returns true if successful, false on failure. 
@@ -607,7 +611,20 @@ That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does no
 */
 bool sys_mkdir(char* dir) {
   check_valid_ptr((void *) cmd_line);
+  if (dir == NULL || strlen(dir) == 0) return false; 
+  // get dir but remove the last / with the find occurrence thing
+  char* last = strrchr(dir, '/'); // finds the last entry (the new directory name);
 
+  char* prev_dir[strlen(dir) - strlen(last) + 1];
+
+  strncpy(prev_dir, dir, strlen(dir) - strlen(last) + 1);
+
+  struct dir* curr_dir = get_dir_from_path(prev_dir);
+  if (dir == NULL) return false; // indicates that a directory in the path DNE
+  // check if dir exists in CWD
+  return dir_add(curr_dir, *(last + 1), block_sector_t inode_sector); // returns false if already exists in CWD
+  // create dir
+  // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
 }
 
 

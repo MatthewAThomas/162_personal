@@ -113,23 +113,73 @@ bool inode_create(block_sector_t sector, off_t length) { // sector is where inod
 
   disk_inode = calloc(1, sizeof *disk_inode);
   if (disk_inode != NULL) {
-    size_t sectors = bytes_to_sectors(length);
-    disk_inode->length = length;
+    size_t sectors = bytes_to_sectors(length); // number of sectors that has to be allocated will remain the same
+    disk_inode->length = length; // length is file size in bytes
     disk_inode->magic = INODE_MAGIC;
 
     // continuous allocation
     // modify the code to save the block addresses of all blocks allocated
-    if (free_map_allocate(sectors, &disk_inode->start)) {
-      block_write(fs_device, sector, disk_inode);
-      if (sectors > 0) {
-        static char zeros[BLOCK_SECTOR_SIZE];
-        size_t i;
 
-        for (i = 0; i < sectors; i++)
-          block_write(fs_device, disk_inode->start + i, zeros);
+    // when you declare a static array with the static keyword, 
+    // the elements are automatically initialized to zero if no explicit initializer is provided. 
+    // Therefore, in this case, the array zeros will be filled with zero values for each element.
+    static char zeros[BLOCK_SECTOR_SIZE];
+
+    for (int block_index = 0 ; block_index < sectors ; block_index++) {
+      // allocating indirect pointer block
+      if(block_index == 123) {
+
       }
-      success = true;
+
+      // allocate doubly indirect pointer block <- only once
+      
+      // allocate indirect pointer block of the doubly indirectly pointer blocks <- each time indirect pointer block is full allocate a new one 
+
+      // allocating data blocks
+      if (block_index < 123) {
+        free_map_allocate(1, &disk_inode->dp[i]);
+        block_write(fs_device, &disk_inode->dp[i], zeros);
+      } else if (block_index < 123 + INDIRECT_BLOCK_CNT) {
+        int indirect_index = block_index - 123;
+        block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+
+        // Im sure it is just indirect_block without pointer
+        block_read(fs_device, inode->data.ip, indirect_block);
+        free_map_allocate(1, &indirect_block[indirect_index]);
+        block_write(fs_device, &indirect_block[indirect_index], zeros);
+        
+      } else if (block_index < 123 + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
+        // Calculate the indices within the doubly indirect block
+        int doubly_indirect_index = (block_index - 123 - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+        int doubly_indirect_offset = (block_index - 123 - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+
+        // Read the doubly indirect block
+        block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
+        block_read(fs_device, inode->data.dip, doubly_indirect_block);
+
+        // Read the indirect block from the doubly indirect block
+        block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+        block_read(fs_device, doubly_indirect_block[doubly_indirect_index], indirect_block);
+
+        free_map_allocate(1, &indirect_block[doubly_indirect_offset]);
+        block_write(fs_device,&indirect_block[doubly_indirect_offset], zeros);
+      } else {
+        printf("Too big!!!")
+      }
     }
+
+
+    // if (free_map_allocate(sectors, &disk_inode->start)) {
+    //   block_write(fs_device, sector, disk_inode);
+    //   if (sectors > 0) {
+    //     static char zeros[BLOCK_SECTOR_SIZE];
+    //     size_t i;
+
+    //     for (i = 0; i < sectors; i++)
+    //       block_write(fs_device, disk_inode->start + i, zeros);
+    //   }
+    //   success = true;
+    // }
     free(disk_inode);
   }
   return success;
