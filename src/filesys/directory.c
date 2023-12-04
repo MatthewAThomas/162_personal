@@ -12,7 +12,7 @@ struct dir {
   off_t pos;           /* Current position. */
 
   struct dir* parent; /* Parent directory. */
-  struct list children;
+  struct list children; /* Refers to directory children (not directory entries). */
   struct list_elem elem; /* Used to add to list of parent directory's children. */
   // TODO: init children in directory creation, add children to parent's list in making dir
 };
@@ -29,9 +29,12 @@ struct dir* ROOT_DIR; // non-NULL after userprog_init called
 // list children function?
 // search for file?
 
+
 /* Checks that the given name is a valid absolute path. */
 bool validate_abs_dir(char* name) {
   // cut out last part for file name 
+  // assumes is full path
+  
 
 }
 
@@ -40,8 +43,115 @@ bool validate_rel_dir(char* name) {
   return validate_abs_dir(convert_to_abs_path(name));
 }
 
+struct dir* get_dir(char* path) {
+  if (path == NULL) return NULL;
+  int len = strlen(path);
+  if (len == 0) return NULL;
+  struct dir* curr;
+  if (path[0] == "/") {
+    struct dir* curr = ROOT_DIR;
+  }
+  else {
+    struct dir* curr = thread_current()->pcb->cwd;
+  }
 
-char* convert_to_abs_path(char* name) {
+  // can discard path once done
+
+  // // /* Searches DIR for a file with the given NAME.
+  //  If successful, returns true, sets *EP to the directory entry
+  //  if EP is non-null, and sets *OFSP to the byte offset of the
+  //  directory entry if OFSP is non-null.
+  //  otherwise, returns false and ignores EP and OFSP. */
+  // static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp) {
+  char* rest = NULL; // or = name
+  int pos = -1;
+  char* token;
+  for (token = strtok_r(&path, "/", &rest); token != NULL; token = strtok_r(NULL, "/", &rest)) {
+    // if (curr == ROOT_DIR) continue; // ignore the first parse as it would give no new info
+    // TODO: if 
+    if (token == "..") {
+      curr = curr->parent;
+    }
+    else if (token == ".") {
+      // no change (CWD)
+    }
+    else {
+      // not a special character
+
+    }
+  }
+  while ((token = strtok_r(rest, "/", &rest))) {
+    printf("%s\n", token);
+
+  }
+
+  // go left to right
+
+
+  // . is CWD
+  // .. is parent directory
+
+  /* Searches DIR for a file with the given NAME.
+   If successful, returns true, sets *EP to the directory entry
+   if EP is non-null, and sets *OFSP to the byte offset of the
+   directory entry if OFSP is non-null.
+   otherwise, returns false and ignores EP and OFSP. */
+  // static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp) {
+
+  // char* rest = NULL; // or = name
+  // int pos = -1;
+  // int max_length = 10;
+  // char* token;
+  // char* path_tokens[10]; // expand as necessary, double each time
+  // for (token = strtok_r(&name, "/", &rest); token != NULL; token = strtok_r(NULL, "/", &rest)) {
+  //   pos += 1;
+  //   if (pos >= max_length) {
+  //     max_length *= 2;
+  //     char* new_path_tokens[max_length];
+  //   }
+  //   path_tokens[pos] = token;
+  // }
+  // while ((token = strtok_r(rest, "/", &rest))) {
+  //   printf("%s\n", token);
+
+  // }
+  //   char buf[] ="abc/qwe/ccd";
+  //   int i = 0;
+  //   char *p = strtok (buf, "/");
+  //   char *array[3];
+
+  //   while (p != NULL)
+  //   {
+  //       array[i++] = p;
+  //       p = strtok (NULL, "/");
+  //   }
+
+  //   for (i = 0; i < 3; ++i) 
+  //       printf("%s\n", array[i]);
+
+  
+}
+
+/* Returns the pointer to the directory if the path is valid.*/
+struct dir* get_dir_from_path(char* path) {
+  //
+}
+
+
+/* Converts . and .. special characters to get absolute paths. 
+Does not check if the rest of the path is valid. */
+char* relative_to_abs_path(char* name) {
+  if (name == NULL) return NULL;
+  int length = strlen(name);
+  if (length >= 2) {
+
+  }
+  else if (length == 1) {
+
+  }
+  return NULL;
+  
+  /*
   // have it stored or develop from root?
   // make it a linked list --> go from backwards up
   // convert . and .. to actual paths 
@@ -78,7 +188,7 @@ char* convert_to_abs_path(char* name) {
 
   //   for (i = 0; i < 3; ++i) 
   //       printf("%s\n", array[i]);
-
+ */
 }
 
 
