@@ -175,7 +175,7 @@ void thread_print_stats(void) {
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
+tid_t thread_create(const char* name, int priority, thread_func* function, void* aux, struct dir* parent) {
   struct thread* t;
   struct kernel_thread_frame* kf;
   struct switch_entry_frame* ef;
@@ -207,6 +207,10 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf = alloc_frame(t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+
+  // t->parent_cwd = dir_reopen(parent); // currently no null checks in place for this, crash?
+  t->parent_cwd = parent;
+  // modify or copy?
 
   /* Add to run queue. */
   thread_unblock(t);

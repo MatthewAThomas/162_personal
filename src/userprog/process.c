@@ -46,6 +46,8 @@ void userprog_init(void) {
   t->pcb = calloc(sizeof(struct process), 1); // has memory leak here if not freed later accordingly
   success = t->pcb != NULL;
 
+  t->pcb->cwd = dir_open_root();
+
   /* Kill the kernel if we did not succeed */
   ASSERT(success);
 }
@@ -96,9 +98,9 @@ pid_t process_execute(const char* file_name) {
   sema_init(&(start_cmd.process_sema), 0);
   start_cmd.children = &(thread_current() -> pcb -> children);
   start_cmd.has_exec = thread_current()->pcb->has_exec;
-
+  struct dir* cwd = thread_current()->pcb->cwd;
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
+  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd, cwd);
   
   /* Down the process_sema; wait for child process to finish loading */
   sema_down(&(start_cmd.process_sema));
@@ -172,7 +174,8 @@ static void start_process(void* start_cmd) {
     init_table(new_fd_table);
 
     // Initialize shared_data;
-    init_shared_data(new_shared_data);    
+    init_shared_data(new_shared_data); 
+    new_pcb->cwd = t->parent_cwd;   
   
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;

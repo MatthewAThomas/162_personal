@@ -12,13 +12,15 @@
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+// 512B
 struct inode_disk {
   //block_sector_t start; /* First data sector. */
-  off_t length;         /* File size in bytes. */
-  unsigned magic;       /* Magic number. */
-  block_sector_t dp[123];
-  block_sector_t ip;
-  block_sector_t dip;
+  // 4 + 4 + 496 + 4 + 4 = 512
+  off_t length;         /* File size in bytes. */ //4
+  unsigned magic;       /* Magic number. */ //4
+  block_sector_t dp[123];         
+  block_sector_t ip; // pointer to direct blocks
+  block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
 };
 
@@ -42,10 +44,13 @@ struct inode {
    POS. */
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
-    return -1;
+  if (pos <= 123) {
+    return inode->data[0] + pos / BLOCK_SECTOR_SIZE
+  }
+  // if (pos < inode->data.length)
+  //   return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  // else
+  //   return -1;
 }
 
 /* List of open inodes, so that opening a single inode twice
