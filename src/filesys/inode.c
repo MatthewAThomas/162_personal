@@ -43,6 +43,8 @@ struct inode {
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
    POS. */
+
+// compute the sector number from the offset
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
     // pos is in bytes
@@ -99,7 +101,7 @@ void inode_init(void) { list_init(&open_inodes); }
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
-bool inode_create(block_sector_t sector, off_t length) {
+bool inode_create(block_sector_t sector, off_t length) { // sector is where inode should be created. Length is the size of the files
   struct inode_disk* disk_inode = NULL;
   bool success = false;
 
@@ -114,6 +116,9 @@ bool inode_create(block_sector_t sector, off_t length) {
     size_t sectors = bytes_to_sectors(length);
     disk_inode->length = length;
     disk_inode->magic = INODE_MAGIC;
+
+    // continuous allocation
+    // modify the code to save the block addresses of all blocks allocated
     if (free_map_allocate(sectors, &disk_inode->start)) {
       block_write(fs_device, sector, disk_inode);
       if (sectors > 0) {
