@@ -33,6 +33,19 @@ struct inode {
   struct inode_disk data; /* Inode content. */
 };
 
+/* Returns the block device sector that contains byte offset POS
+   within INODE.
+   Returns -1 if INODE does not contain data for a byte at offset
+   POS. */
+static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
+  ASSERT(inode != NULL);
+  if (pos < inode->data.length)
+    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  else
+    return -1;
+}
+
+
 
 /* --------------------------------- Buffer Cache ----------------------------------- */
 #define NUM_BUFFER_BLOCKS 64
@@ -54,8 +67,7 @@ struct buffer_entry {
   // struct condition cond;
   
   struct list_elem elem;
-};  // LRU
-// can keep block sector type in block
+};
 
 struct list BUFFER_ENTRY_LIST;
 struct buffer_entry buffer_entry_elems[NUM_BUFFER_BLOCKS];
@@ -77,19 +89,6 @@ void entry_to_back(struct list *buffer_entry_list, struct buffer_entry *entry);
 
 
 
-
-
-/* Returns the block device sector that contains byte offset POS
-   within INODE.
-   Returns -1 if INODE does not contain data for a byte at offset
-   POS. */
-static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
-  ASSERT(inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
-    return -1;
-}
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
