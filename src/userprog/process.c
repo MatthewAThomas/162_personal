@@ -892,6 +892,7 @@ struct fd* add(struct fd_table* fd_table, struct file* file) {
   struct list_elem* e = &(file_descriptor->list_fd);
   file_descriptor->val = fd_table->next_unused_fd;
   file_descriptor->file = file;
+  file_descriptor->is_dir = file->is_dir;
   fd_table->next_unused_fd += 1;
   list_push_back(&(fd_table->fds), e);
   file_descriptor->list_fd = *e;

@@ -27,6 +27,9 @@ struct dir_entry {
 };
 
 
+bool validate_dir_path(char* path) {
+  //
+}
 
 // struct dir* find_dir_child(struct fd_table* fd_table, int fd) {
 //     for (struct list_elem* e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
@@ -37,7 +40,6 @@ struct dir_entry {
 //     } 
 //     return NULL;
 // }
-
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
