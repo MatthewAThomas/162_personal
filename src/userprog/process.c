@@ -45,9 +45,8 @@ void userprog_init(void) {
      can come at any time and activate our pagedir */
   t->pcb = calloc(sizeof(struct process), 1); // has memory leak here if not freed later accordingly
   success = t->pcb != NULL;
-
-  t->pcb->cwd = dir_open_root();
-  ROOT_DIR = t->pcb->cwd;
+  ROOT_DIR = dir_open_root();
+  t->pcb->cwd = ROOT_DIR; // root_dir defined when calling thread_start in init.c
 
   /* Kill the kernel if we did not succeed */
   ASSERT(success);

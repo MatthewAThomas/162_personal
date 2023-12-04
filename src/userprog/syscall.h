@@ -41,7 +41,7 @@ bool sys_chdir(char* dir);
 bool sys_mkdir(char* dir);
 bool sys_readdir(int fd, char* name);
 bool sys_isdir(int fd);
-int sys_inumber(int fd)
+int sys_inumber(int fd);
 
 
 #endif /* userprog/syscall.h */

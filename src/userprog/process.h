@@ -93,9 +93,10 @@ struct fd_table {
 };
 
 struct fd {
-    struct list_elem list_fd;
-    int val; 
-    struct file* file; 
+  struct list_elem list_fd;
+  int val; 
+  struct file* file; 
+  bool is_dir;
 };
 
 struct fd* find(struct fd_table *table, int fd);

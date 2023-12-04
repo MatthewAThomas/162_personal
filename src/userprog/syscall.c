@@ -176,13 +176,13 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f -> eax = e;
   }
   else if (args[0] == SYS_CHDIR) { // locks? only if changing things
-    f->eax = sys_chdir(args[1]);
+    f->eax = sys_chdir((void*)args[1]);
   }
   else if (args[0] == SYS_MKDIR) {
-    f->eax = sys_mkdir(args[1]);
+    f->eax = sys_mkdir((void*)args[1]);
   }
   else if (args[0] == SYS_READDIR) {
-    f->eax = sys_readdir(args[1]);
+    f->eax = sys_readdir(args[1], (void*)args[2]);
   }
   else if (args[0] == SYS_ISDIR) {
     f->eax = sys_isdir(args[1]);
@@ -423,20 +423,23 @@ If the operation is unsuccessful, it can either exit with -1
 */
 void sys_close(int fd) {
   if (fd < 2) {
-    return -1;
+    // return -1;
+    return;
   }
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* file_desc = find(fd_table, fd);
   if (file_desc == NULL) {
-    return -1;
+    // return -1;
+    return;
     //sys_exit(-1); // 
   }
   // close file
   file_close(file_desc->file);
   int removal_status = remove(fd_table, fd);
   if (removal_status != 0) {
-    return -1;
+    // return -1;
     //sys_exit(-1);
+    return;
   }
 }
 
@@ -597,8 +600,8 @@ int sys_wait(pid_t pid) {
 Returns true if successful, false on failure. 
 */
 bool sys_chdir(char* dir) {
-  check_valid_ptr((void *) cmd_line);
-
+  check_valid_ptr((void *) dir);
+  return false;
 }
 
 /* Creates the directory named dir, which may be relative or absolute. Returns true if successful, false on failure. 
@@ -606,8 +609,8 @@ Fails if dir already exists or if any directory name in dir, besides the last, d
 That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
 */
 bool sys_mkdir(char* dir) {
-  check_valid_ptr((void *) cmd_line);
-
+  check_valid_ptr((void *) dir);
+  return false;
 }
 
 
@@ -617,8 +620,8 @@ If the directory changes while it is open, then it is acceptable for some entrie
 READDIR_MAX_LEN is defined in lib/user/syscall.h. If your file system supports longer file names than the basic file system, you should increase this value from the default of 14.
 */
 bool sys_readdir(int fd, char* name) {
-  check_valid_ptr((void *) cmd_line);
-
+  check_valid_ptr((void *) name);
+  return false;
 }
 
 
@@ -639,5 +642,5 @@ We have provided the ls and mkdir user programs, which are straightforward once 
 The pintos extract and pintos append commands should now accept full path names, assuming that the directories used in the paths have already been created. This should not require any significant extra effort on your part.
 */
 int sys_inumber(int fd) {
-
+  return -1;
 }
