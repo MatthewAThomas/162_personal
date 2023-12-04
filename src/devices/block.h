@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <inttypes.h>
+#include "threads/synch.h"
 
 /* Size of a block device sector in bytes.
    All IDE disks use this sector size, as do most USB and SCSI

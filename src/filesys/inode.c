@@ -33,6 +33,47 @@ struct inode {
   struct inode_disk data; /* Inode content. */
 };
 
+
+/* --------------------------------- Buffer Cache ----------------------------------- */
+
+struct buffer_entry {
+  char *data; // holds pointer to corresponding block in buffer cache
+  block_sector_t sector;
+  bool dirty;
+  int ref_count;
+  
+  /* If a thread is writting to a block, only it should be able to access this thread.
+     We can implement this by only allowing threads to access the block if <being_written_to> is false.
+     Using a lock and conditional variable, we can make sure that checking/modifiying 
+     <being_written_to> is quick (doesn't let threads busy wait). */
+  bool being_written_to; // Used to prevent eviction while being written to
+  struct lock lock;
+  struct condition cond;
+  
+  struct list_elem elem;
+};  // LRU
+// can keep block sector type in block
+
+struct list buffer_entry_list;
+struct buffer_entry buffer_entry_elems[64];
+char buffer_cache[64 * BLOCK_SECTOR_SIZE]; // the blocks that the buffer entries point to (char *data)
+
+/* Only one thread at a time should modify the buffer_entry_list. We use the following
+   synchronization primitives to implement this. */
+struct condition buffer_cond; // used if all entries are full and cant be evicted
+struct lock buffer_lock;
+
+/* Used after an entry is referenced. Used for LRU. */
+void entry_to_front(struct list *buffer_entry_list, struct buffer_entry *entry);
+/* Used if the reference count is zero(?). Should make eviction faster. */
+void entry_to_back(struct list *buffer_entry_list, struct buffer_entry *entry);
+
+/* ------------------------- End of Buffer Cache ----------------------------------- */
+
+
+
+
+
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
@@ -285,3 +326,18 @@ void inode_allow_write(struct inode* inode) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { return inode->data.length; }
+
+
+
+/* Buffer Cache helper functions */
+void entry_to_front(struct list *buffer_entry_list, struct buffer_entry *entry) {
+  struct list_elem *elem = &(entry -> elem);
+  list_remove(elem);
+  list_push_front(buffer_entry_list, elem);
+}
+
+void entry_to_back(struct list *buffer_entry_list, struct buffer_entry *entry) {
+  struct list_elem *elem = &(entry -> elem);
+  list_remove(elem);
+  list_push_back(buffer_entry_list, elem);
+}
