@@ -43,13 +43,15 @@ struct buffer_entry {
   bool dirty;
   int ref_count;
   
-  /* If a thread is writting to a block, only it should be able to access this thread.
-     We can implement this by only allowing threads to access the block if <being_written_to> is false.
-     Using a lock and conditional variable, we can make sure that checking/modifiying 
-     <being_written_to> is quick (doesn't let threads busy wait). */
-  bool being_written_to; // Used to prevent eviction while being written to
-  struct lock lock;
-  struct condition cond;
+  /* There are several situations where a thread should not be able to access a buffer cachce entry: 
+      - if the block is currently being written to, read from 
+      - if the block is currently being loaded 
+      - if the block is currently being evicted 
+    In these cases, the thread that is actively doing one of the above should set can_access to false.
+    Only, when it's done should it reset can_access to true (also should cond_signal on buffer_cond) */
+  bool can_access;
+  // struct lock lock;
+  // struct condition cond;
   
   struct list_elem elem;
 };  // LRU
@@ -60,7 +62,9 @@ struct buffer_entry buffer_entry_elems[NUM_BUFFER_BLOCKS];
 char BUFFER_CACHE[NUM_BUFFER_BLOCKS * BLOCK_SECTOR_SIZE]; // the blocks that the buffer entries point to (char *data)
 
 /* Only one thread at a time should modify the BUFFER_ENTRY_LIST. We use the following
-   synchronization primitives to implement this. */
+  synchronization primitives to implement this.
+  buffer_cond and buffer_lock should be used in such a way that can_access is updated quickly.
+  i.e., threads should not busy wait if can_access is false. */
 struct condition buffer_cond; // used if all entries are full and cant be evicted
 struct lock buffer_lock;
 
@@ -332,14 +336,14 @@ off_t inode_length(const struct inode* inode) { return inode->data.length; }
 
 /* Buffer Cache functions */
 void buffer_cache_init(void) {
-  /* Initialize buffer entries' dirty, ref_count, being_written_to, lock, and cond fields */
+  /* Initialize buffer entries' dirty, ref_count, being_written_to, being_loaded, lock, and cond fields */
   for (int i = 0; i < NUM_BUFFER_BLOCKS; i++) {
     struct buffer_entry *entry = &(buffer_entry_elems[i]);
     entry -> dirty = false;
     entry -> ref_count = 0;
-    entry -> being_written_to = false;
-    lock_init(&(entry -> lock));
-    cond_init(&(entry -> cond));
+    entry -> can_access = true;
+    // lock_init(&(entry -> lock));
+    // cond_init(&(entry -> cond));
   }
 
   /* Initialize BUFFER_ENTRY_LIST*/
