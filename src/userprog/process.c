@@ -763,7 +763,8 @@ void decrement_shared_data(struct list *children) {
       shared_data->ref_count = shared_data->ref_count -1;
     }
   }
-  return NULL;
+  // return NULL;
+  return;
 }
 
 struct shared_data *find_shared_data(struct list *children, int pid) {
@@ -892,7 +893,7 @@ struct fd* add(struct fd_table* fd_table, struct file* file) {
   struct list_elem* e = &(file_descriptor->list_fd);
   file_descriptor->val = fd_table->next_unused_fd;
   file_descriptor->file = file;
-  file_descriptor->is_dir = file->is_dir;
+  //file_descriptor->is_dir = file->is_dir; // TODO: figure out how best to add is_dir
   fd_table->next_unused_fd += 1;
   list_push_back(&(fd_table->fds), e);
   file_descriptor->list_fd = *e;
