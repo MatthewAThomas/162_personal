@@ -35,6 +35,7 @@ struct inode {
 
 
 /* --------------------------------- Buffer Cache ----------------------------------- */
+#define NUM_BUFFER_BLOCKS 64
 
 struct buffer_entry {
   char *data; // holds pointer to corresponding block in buffer cache
@@ -54,11 +55,11 @@ struct buffer_entry {
 };  // LRU
 // can keep block sector type in block
 
-struct list buffer_entry_list;
-struct buffer_entry buffer_entry_elems[64];
-char buffer_cache[64 * BLOCK_SECTOR_SIZE]; // the blocks that the buffer entries point to (char *data)
+struct list BUFFER_ENTRY_LIST;
+struct buffer_entry buffer_entry_elems[NUM_BUFFER_BLOCKS];
+char BUFFER_CACHE[NUM_BUFFER_BLOCKS * BLOCK_SECTOR_SIZE]; // the blocks that the buffer entries point to (char *data)
 
-/* Only one thread at a time should modify the buffer_entry_list. We use the following
+/* Only one thread at a time should modify the BUFFER_ENTRY_LIST. We use the following
    synchronization primitives to implement this. */
 struct condition buffer_cond; // used if all entries are full and cant be evicted
 struct lock buffer_lock;
@@ -329,7 +330,33 @@ off_t inode_length(const struct inode* inode) { return inode->data.length; }
 
 
 
-/* Buffer Cache helper functions */
+/* Buffer Cache functions */
+void buffer_cache_init(void) {
+  /* Initialize buffer entries' dirty, ref_count, being_written_to, lock, and cond fields */
+  for (int i = 0; i < NUM_BUFFER_BLOCKS; i++) {
+    struct buffer_entry *entry = &(buffer_entry_elems[i]);
+    entry -> dirty = false;
+    entry -> ref_count = 0;
+    entry -> being_written_to = false;
+    lock_init(&(entry -> lock));
+    cond_init(&(entry -> cond));
+  }
+
+  /* Initialize BUFFER_ENTRY_LIST*/
+  list_init(&BUFFER_ENTRY_LIST);
+
+  /* Add buffer entries to BUFFER_ENTRY_LIST */
+  for (int i = 0; i < NUM_BUFFER_BLOCKS; i++) {
+    struct buffer_entry *entry = &(buffer_entry_elems[i]);
+    struct list_elem *elem = &(entry -> elem);
+    list_push_front(&BUFFER_ENTRY_LIST, elem);
+  }
+
+  /* Initialize buffer_cond and buffer_lock */
+  cond_init(&buffer_cond);
+  lock_init(&buffer_lock);
+}
+
 void entry_to_front(struct list *buffer_entry_list, struct buffer_entry *entry) {
   struct list_elem *elem = &(entry -> elem);
   list_remove(elem);
