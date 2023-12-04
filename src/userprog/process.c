@@ -47,6 +47,7 @@ void userprog_init(void) {
   success = t->pcb != NULL;
 
   t->pcb->cwd = dir_open_root();
+  ROOT_DIR = t->pcb->cwd;
 
   /* Kill the kernel if we did not succeed */
   ASSERT(success);

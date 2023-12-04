@@ -27,4 +27,10 @@ bool dir_add(struct dir*, const char* name, block_sector_t);
 bool dir_remove(struct dir*, const char* name);
 bool dir_readdir(struct dir*, char name[NAME_MAX + 1]);
 
+// Added for Subdir
+bool validate_abs_dir(char* name);
+bool validate_rel_dir(char* name);
+char* convert_to_abs_path(char* name);
+
+
 #endif /* filesys/directory.h */

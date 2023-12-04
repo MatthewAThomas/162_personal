@@ -14,6 +14,7 @@ struct dir {
   struct dir* parent; /* Parent directory. */
   struct list children;
   struct list_elem elem; /* Used to add to list of parent directory's children. */
+  // TODO: init children in directory creation, add children to parent's list in making dir
 };
 
 /* A single directory entry. */
@@ -23,23 +24,61 @@ struct dir_entry {
   bool in_use;                 /* In use or free? */
 };
 
-struct dir* ROOT_DIR;
+struct dir* ROOT_DIR; // non-NULL after userprog_init called
+
+// list children function?
+// search for file?
 
 /* Checks that the given name is a valid absolute path. */
-bool validate_abs_dir(const char* name) {
+bool validate_abs_dir(char* name) {
+  // cut out last part for file name 
 
 }
 
 /* Checks that the given name is a valid relative (based on CWD) path. */
-bool validate_rel_dir(const char* name) {
-
+bool validate_rel_dir(char* name) {
+  return validate_abs_dir(convert_to_abs_path(name));
 }
 
 
-char* convert_to_abs_path() {
+char* convert_to_abs_path(char* name) {
   // have it stored or develop from root?
   // make it a linked list --> go from backwards up
   // convert . and .. to actual paths 
+
+  // break name into with strtok_r, delimited by /
+
+  // char* rest = NULL; // or = name
+  // int pos = -1;
+  // int max_length = 10;
+  // char* token;
+  // char* path_tokens[10]; // expand as necessary, double each time
+  // for (token = strtok_r(&name, "/", &rest); token != NULL; token = strtok_r(NULL, "/", &rest)) {
+  //   pos += 1;
+  //   if (pos >= max_length) {
+  //     max_length *= 2;
+  //     char* new_path_tokens[max_length];
+  //   }
+  //   path_tokens[pos] = token;
+  // }
+  // while ((token = strtok_r(rest, "/", &rest))) {
+  //   printf("%s\n", token);
+
+  // }
+  //   char buf[] ="abc/qwe/ccd";
+  //   int i = 0;
+  //   char *p = strtok (buf, "/");
+  //   char *array[3];
+
+  //   while (p != NULL)
+  //   {
+  //       array[i++] = p;
+  //       p = strtok (NULL, "/");
+  //   }
+
+  //   for (i = 0; i < 3; ++i) 
+  //       printf("%s\n", array[i]);
+
 }
 
 
