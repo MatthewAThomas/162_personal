@@ -50,15 +50,21 @@ struct inode {
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
     // pos is in bytes
-  if (pos > inode->data.length) return -1;
+  // char buffer[BLOCK_SECTOR_SIZE];
+  // block_read(fs_device, inode->sector, buffer);
+  // struct inode_disk *disk_inode = (struct inode_disk *) buffer;
 
-  if (pos < inode->data.length) {
+  struct inode_disk *disk_inode = &inode -> data;
+
+  if (pos > disk_inode -> length) return -1;
+
+  if (pos <  disk_inode -> length) {
     // Calculate the index of the direct block based on the position
     int block_index = pos / BLOCK_SECTOR_SIZE;
 
     // Check if the index is within the range of direct pointers
     if (block_index < DP_CNT) {
-      return inode->data.dp[block_index];
+      return disk_inode -> dp[block_index];
     }
 
     // Add logic for handling indirect and doubly indirect pointers if needed
@@ -67,7 +73,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
       block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
 
       // Im sure it is just indirect_block without pointer
-      block_read(fs_device, inode->data.ip, indirect_block);
+      block_read(fs_device, disk_inode -> ip, indirect_block);
       return indirect_block[indirect_index];
     }
 
@@ -78,7 +84,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 
       // Read the doubly indirect block
       block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
-      block_read(fs_device, inode->data.dip, doubly_indirect_block);
+      block_read(fs_device, disk_inode -> dip, doubly_indirect_block);
 
       // Read the indirect block from the doubly indirect block
       block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
@@ -298,6 +304,9 @@ void inode_close(struct inode* inode) {
       free_map_release(inode->sector, 1);
 
       // free disk
+      // char buffer[BLOCK_SECTOR_SIZE];
+      // block_read(fs_device, inode->sector, buffer);
+      // struct inode_disk *disk_inode = (struct inode_disk *) buffer;
       struct inode_disk* disk_inode = &inode->data;
       int sectors = disk_inode->length;
       // free_map_release(inode->data.start, bytes_to_sectors(inode->data.length));
@@ -437,6 +446,9 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     return 0;
   // allocate lock
 
+  // char inode_buffer[BLOCK_SECTOR_SIZE];
+  // block_read(fs_device, inode->sector, inode_buffer);
+  // struct inode_disk *disk_inode = (struct inode_disk *) inode_buffer;
   struct inode_disk* disk_inode = &inode->data;
   int final_end = offset + size  - 1;
   int limit = disk_inode->length;
@@ -452,15 +464,23 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
       additional_blocks = 1;
     }
 
+    int block_index;
+    if (limit == 0) {
+      block_index = 0;
+    } else {
+      block_index = disk_inode -> block_index + 1;
+    }
+
     // find where the inode_disk is at from 'limit'
     block_sector_t sector_idx = byte_to_sector(inode, limit);
-
-    // find how much inode disk should expand from 'final end'
-    int block_index = disk_inode -> block_index + 1;
 
     // allocate the necessary amount of data blocks
     inode_create_helper(additional_blocks, disk_inode, block_index);
   }
+
+  disk_inode->length = (offset + size > limit) ? offset + size : limit;
+  block_write(fs_device, inode -> sector, disk_inode);
+  memcpy(&inode -> data, disk_inode, BLOCK_SECTOR_SIZE);
 
   // release lock
 
@@ -528,4 +548,11 @@ void inode_allow_write(struct inode* inode) {
 }
 
 /* Returns the length, in bytes, of INODE's data. */
-off_t inode_length(const struct inode* inode) { return inode->data.length; }
+off_t inode_length(const struct inode* inode) { 
+  // return inode->data.length; 
+  char buffer[BLOCK_SECTOR_SIZE];
+  block_read(fs_device, inode -> sector, buffer);
+  struct inode_disk *disk_inode = (struct inode_disk *) buffer;
+  return disk_inode -> length;
+  // return inode->data.length;
+}
