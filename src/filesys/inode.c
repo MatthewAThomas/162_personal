@@ -448,6 +448,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     // if final and limit are part of the same block, we don't need to allocate new blocks
     if ((final_end / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
       additional_blocks = (final_end / BLOCK_SECTOR_SIZE) - (limit / BLOCK_SECTOR_SIZE);
+    } else if (limit == 0) {
+      additional_blocks = 1;
     }
 
     // find where the inode_disk is at from 'limit'

@@ -601,7 +601,12 @@ Returns true if successful, false on failure.
 */
 bool sys_chdir(char* dir) {
   check_valid_ptr((void *) dir);
-
+  // struct dir_entry* curr;
+  // off_t* offset;
+  // if (lookup(thread_current()->pcb->cwd, dir, curr, offset)) {
+  //   thread_current()->pcb->cwd = get_dir_from_entry(curr);
+  //   return true;
+  // }
   return false;
 }
 
@@ -617,10 +622,8 @@ bool sys_mkdir(char* dir) {
   // make dir in given path
 
   // // get dir but remove the last / with the find occurrence thing
-  // char* last = strrchr(dir, '/'); // finds the last entry (the new directory name);
-
+  char* last = strrchr(dir, '/'); // finds the last entry (the new directory name);
   // char* prev_dir[strlen(dir) - strlen(last) + 1];
-
   // strncpy(prev_dir, dir, strlen(dir) - strlen(last) + 1);
 
   // struct dir* curr_dir = get_dir_from_path(prev_dir);

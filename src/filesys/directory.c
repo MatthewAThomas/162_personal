@@ -39,6 +39,8 @@ struct dir_entry {
 
 struct dir* get_dir_from_entry(struct dir_entry* entry) {
   // assumes in_use
+
+  return NULL;
 }
 
 
