@@ -22,11 +22,6 @@ void seq_test(const char* file_name, void* buf, size_t size, size_t initial_size
     if (write(fd, buf + ofs, block_size) != (int)block_size)
       fail("write %zu bytes at offset %zu in \"%s\" failed", block_size, ofs, file_name);
 
-    /* DEBUGGING */
-    char buffer[512];
-    read(fd, buffer, 512);
-    msg("write == (%s)", buffer);
-
     ofs += block_size;
     if (check_func != NULL)
       check_func(fd, ofs);

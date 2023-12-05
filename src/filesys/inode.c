@@ -182,8 +182,8 @@ bool inode_create_helper(size_t sectors, struct inode_disk *disk_inode, int bloc
     } else {
       printf("Too big!!!");
     }
+    disk_inode -> block_index = block_index;
   }
-  disk_inode -> block_index = block_index;
 
   return true;
 }
@@ -440,16 +440,24 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   int final_end = offset + size  - 1;
   int limit = disk_inode->length;
 
-  if(final_end > limit) {
+  if ((limit == 0) && (final_end != limit)) {
+    size_t additional_blocks = 1 + (final_end / BLOCK_SECTOR_SIZE);
+    int block_index = 0;
+    int end_block = additional_blocks + block_index;
+    inode_create_helper(end_block, disk_inode, block_index);
+    //disk_inode -> block_index = 0; // change; is messing up because of synchronization i think
+
+  } else if (final_end > limit) {
     // update file size is equivalent to updating inode
     
     size_t additional_blocks = 0;
     // if final and limit are part of the same block, we don't need to allocate new blocks
     if ((final_end / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
       additional_blocks = (final_end / BLOCK_SECTOR_SIZE) - (limit / BLOCK_SECTOR_SIZE);
-    } else if (limit == 0) {
-      additional_blocks = 1;
     }
+    // } else if (limit == 0) {
+    //   additional_blocks = 1;
+    // }
 
     // int block_index = disk_inode -> block_index;
     // if (limit == 0) {
@@ -466,9 +474,12 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     block_sector_t sector_idx = byte_to_sector(inode, limit);
 
     // allocate the necessary amount of data blocks
-    int end_block = additional_blocks + disk_inode -> block_index;
-    inode_create_helper(end_block, disk_inode, disk_inode -> block_index);
+    int block_index = disk_inode -> length / BLOCK_SECTOR_SIZE + 1;
+    int end_block = additional_blocks + block_index;
+    inode_create_helper(end_block, disk_inode, block_index);
+    //disk_inode -> block_index = block_index - 1; //change, race condition?
     disk_inode -> block_index += additional_blocks;
+
   }
 
   disk_inode->length = (offset + size > limit) ? offset + size : limit;
@@ -549,3 +560,38 @@ off_t inode_length(const struct inode* inode) {
   return disk_inode -> length;
   // return inode->data.length;
 }
+
+
+// /* Direct pointers */
+// for (int i = 0; i < 12; i++) {
+//   if (size <= BLOCK_SECTOR_SIZE * i && id->direct[i] != 0) {
+//     /* Shrink. */
+//     block_free(id->direct[i]);
+//     id->direct[i] = 0;
+//   } else if (size > BLOCK_SECTOR_SIZE * i && id->direct[i] == 0) {
+//     /* Grow. */
+//     id->direct[i] = block_allocate();
+//   }
+// }
+
+// /* Handle indirect pointers. */
+// for (int i = 0; i < 128; i++) {
+//   if (size <= (12 + i) * BLOCK_SECTOR_SIZE && buffer[i] != 0) {
+//     /* Shrink. */
+//     block_free(buffer[i]);
+//     buffer[i] = 0;
+//   } else if ((size > (12 + i) * BLOCK_SECTOR_SIZE) && buffer[i] == 0) {
+//     /* Grow. */
+//     buffer[i] = block_allocate();
+//   }
+// }
+// if (size <= 12 * BLOCK_SECTOR_SIZE) {
+//   /* We shrank the inode such that indirect pointers are no longer  required. */
+//   block_free(id->indirect);
+//   id->indirect = 0;
+// } else {
+//   /* Write updates to the indirect block back to disk.*/
+//   block_write(id->indirect, buffer);
+// }
+// id->length = size;
+
