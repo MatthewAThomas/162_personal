@@ -601,6 +601,7 @@ Returns true if successful, false on failure.
 */
 bool sys_chdir(char* dir) {
   check_valid_ptr((void *) dir);
+
   return false;
 }
 
@@ -610,10 +611,11 @@ That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does no
 */
 bool sys_mkdir(char* dir) {
   check_valid_ptr((void *) dir);
-  return false;
+  if (dir == NULL || strlen(dir) == 0) return false; 
 
-  // check_valid_ptr((void *) cmd_line);
-  // if (dir == NULL || strlen(dir) == 0) return false; 
+  // verify dir (abs or rel)
+  // make dir in given path
+
   // // get dir but remove the last / with the find occurrence thing
   // char* last = strrchr(dir, '/'); // finds the last entry (the new directory name);
 
@@ -627,6 +629,7 @@ bool sys_mkdir(char* dir) {
   // return dir_add(curr_dir, *(last + 1), block_sector_t inode_sector); // returns false if already exists in CWD
   // // create dir
   // // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
+  return false;
 }
 
 

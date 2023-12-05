@@ -127,7 +127,7 @@ void thread_start(void) {
   struct semaphore idle_started;
   sema_init(&idle_started, 0);
 
-  thread_create("idle", PRI_MIN, idle, &idle_started, NULL);
+  thread_create("idle", PRI_MIN, idle, &idle_started);
 
   /* Start preemptive thread scheduling. */
   intr_enable();
@@ -177,7 +177,7 @@ void thread_print_stats(void) {
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t thread_create(const char* name, int priority, thread_func* function, void* aux, struct dir* parent) {
+tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
   struct thread* t;
   struct kernel_thread_frame* kf;
   struct switch_entry_frame* ef;
@@ -211,7 +211,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf->ebp = 0;
 
   // t->parent_cwd = dir_reopen(parent); // currently no null checks in place for this, crash?
-  t->parent_cwd = parent;
+  // t->parent_cwd = parent;
   // modify or copy?
 
   /* Add to run queue. */

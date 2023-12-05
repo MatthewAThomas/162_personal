@@ -45,8 +45,8 @@ void userprog_init(void) {
      can come at any time and activate our pagedir */
   t->pcb = calloc(sizeof(struct process), 1); // has memory leak here if not freed later accordingly
   success = t->pcb != NULL;
-  ROOT_DIR = dir_open_root();
-  t->pcb->cwd = ROOT_DIR; // root_dir defined when calling thread_start in init.c
+  // ROOT_DIR = dir_open_root();
+  // t->pcb->cwd = ROOT_DIR; // root_dir defined when calling thread_start in init.c
 
   /* Kill the kernel if we did not succeed */
   ASSERT(success);
@@ -100,7 +100,7 @@ pid_t process_execute(const char* file_name) {
   start_cmd.has_exec = thread_current()->pcb->has_exec;
   struct dir* cwd = thread_current()->pcb->cwd;
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd, cwd);
+  tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
   
   /* Down the process_sema; wait for child process to finish loading */
   sema_down(&(start_cmd.process_sema));
