@@ -12,7 +12,8 @@
 #define NAME_MAX 14
 
 struct inode;
-struct dir* ROOT_DIR; // non-NULL after userprog_init called
+// moving to directory.c
+// struct dir* ROOT_DIR; // non-NULL after userprog_init called
 
 /* Opening and closing directories. */
 bool dir_create(block_sector_t sector, size_t entry_cnt);

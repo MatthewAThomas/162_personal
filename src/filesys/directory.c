@@ -108,7 +108,8 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
     int len = strlen(name);
     struct dir* curr;
     if (name[0] == '/') {
-      curr = ROOT_DIR;
+      //curr = ROOT_DIR;
+      curr = dir;
     }
     else {
       curr = dir;
