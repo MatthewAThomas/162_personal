@@ -10,6 +10,7 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 #define INDIRECT_BLOCK_CNT 128
+#define DP_CNT 124
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -19,7 +20,7 @@ struct inode_disk {
   // 4 + 4 + 496 + 4 + 4 = 512
   off_t length;         /* File size in bytes. */ //4
   unsigned magic;       /* Magic number. */ //4
-  block_sector_t dp[123]; // typedef uint32_t block_sector_t;        
+  block_sector_t dp[DP_CNT]; // typedef uint32_t block_sector_t;        
   block_sector_t ip;  // block index
   block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
@@ -48,18 +49,20 @@ struct inode {
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
     // pos is in bytes
+  if (pos > inode->data.length) return -1;
+
   if (pos < inode->data.length) {
     // Calculate the index of the direct block based on the position
     int block_index = pos / BLOCK_SECTOR_SIZE;
 
     // Check if the index is within the range of direct pointers
-    if (block_index < 123) {
+    if (block_index < DP_CNT) {
       return inode->data.dp[block_index];
     }
 
     // Add logic for handling indirect and doubly indirect pointers if needed
-    if (block_index < 123 + INDIRECT_BLOCK_CNT) {
-      int indirect_index = block_index - 123;
+    if (block_index < DP_CNT + INDIRECT_BLOCK_CNT) {
+      int indirect_index = block_index - DP_CNT;
       block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
 
       // Im sure it is just indirect_block without pointer
@@ -67,10 +70,10 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
       return indirect_block[indirect_index];
     }
 
-    if (block_index < 123 + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
+    if (block_index < DP_CNT + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
       // Calculate the indices within the doubly indirect block
-      int doubly_indirect_index = (block_index - 123 - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
-      int doubly_indirect_offset = (block_index - 123 - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+      int doubly_indirect_index = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+      int doubly_indirect_offset = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
 
       // Read the doubly indirect block
       block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
@@ -124,47 +127,81 @@ bool inode_create(block_sector_t sector, off_t length) { // sector is where inod
     // the elements are automatically initialized to zero if no explicit initializer is provided. 
     // Therefore, in this case, the array zeros will be filled with zero values for each element.
     static char zeros[BLOCK_SECTOR_SIZE];
+    
+    // zero out the sector that will hold the new inode 
+    block_write(fs_device, sector, zeros);
 
     for (int block_index = 0 ; block_index < sectors ; block_index++) {
       // allocating indirect pointer block
-      if(block_index == 123) {
-
+      if(block_index == DP_CNT) {
+        // writes a block number
+        free_map_allocate(1, &disk_inode->ip);
       }
 
       // allocate doubly indirect pointer block <- only once
+      if (block_index == DP_CNT + INDIRECT_BLOCK_CNT) {
+        free_map_allocate(1, &disk_inode->dip);
+      }
       
-      // allocate indirect pointer block of the doubly indirectly pointer blocks <- each time indirect pointer block is full allocate a new one 
+      // allocate indirect pointer block of the doubly indirectly pointer blocks <- each time indirect pointer block is full allocate a new one
+      if (block_index >= DP_CNT + INDIRECT_BLOCK_CNT) {
+        int doubly_indirect_index = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+        int doubly_indirect_offset = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+        if (doubly_indirect_offset == 0) {
+          // get the current block of indirect pointers (pointed to by the doubly indirect pointer)
+          block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
+          block_read(fs_device, disk_inode -> dip, doubly_indirect_block);
+
+          // Update the doubly_indirect_index-th indirect pointer in the block
+          free_map_allocate(1, &doubly_indirect_block[doubly_indirect_index]);
+          
+          //write the updated indirect pointer block back  to disk
+          block_write(fs_device, disk_inode -> dip, doubly_indirect_block);
+        }
+      }
 
       // allocating data blocks
-      if (block_index < 123) {
-        free_map_allocate(1, &disk_inode->dp[i]);
-        block_write(fs_device, &disk_inode->dp[i], zeros);
-      } else if (block_index < 123 + INDIRECT_BLOCK_CNT) {
-        int indirect_index = block_index - 123;
+      if (block_index < DP_CNT) {
+        free_map_allocate(1, &disk_inode->dp[block_index]);
+        block_write(fs_device, &disk_inode->dp[block_index], zeros);
+      } else if (block_index < DP_CNT + INDIRECT_BLOCK_CNT) {
+        int indirect_index = block_index - DP_CNT;
         block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
 
         // Im sure it is just indirect_block without pointer
-        block_read(fs_device, inode->data.ip, indirect_block);
-        free_map_allocate(1, &indirect_block[indirect_index]);
-        block_write(fs_device, &indirect_block[indirect_index], zeros);
+        // Update indirect block (get new indirect pointer and associated data block)
+        block_read(fs_device, disk_inode -> ip, indirect_block);
+        free_map_allocate(1, &indirect_block[indirect_index]); 
+
+        // Write updated indirect block back to disk
+        block_write(fs_device, disk_inode->ip, indirect_block);
+
+        // Zero out newly created data block
+        block_write(fs_device, indirect_block[indirect_index], zeros);
         
       } else if (block_index < 123 + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
         // Calculate the indices within the doubly indirect block
-        int doubly_indirect_index = (block_index - 123 - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
-        int doubly_indirect_offset = (block_index - 123 - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+        int doubly_indirect_index = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+        int doubly_indirect_offset = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
 
         // Read the doubly indirect block
         block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
-        block_read(fs_device, inode->data.dip, doubly_indirect_block);
+        block_read(fs_device, disk_inode -> dip, doubly_indirect_block);
 
         // Read the indirect block from the doubly indirect block
         block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
         block_read(fs_device, doubly_indirect_block[doubly_indirect_index], indirect_block);
 
+        // save the block address of the block allocated
         free_map_allocate(1, &indirect_block[doubly_indirect_offset]);
-        block_write(fs_device,&indirect_block[doubly_indirect_offset], zeros);
+
+        // write updated direct pointer block back to disk
+        block_write(fs_device, doubly_indirect_block[doubly_indirect_index], indirect_block);
+
+        // zero out new data block
+        block_write(fs_device, indirect_block[doubly_indirect_offset], zeros);
       } else {
-        printf("Too big!!!")
+        printf("Too big!!!");
       }
     }
 
@@ -180,6 +217,9 @@ bool inode_create(block_sector_t sector, off_t length) { // sector is where inod
     //   }
     //   success = true;
     // }
+
+    // write the latest version of the new inode to disk 
+    block_write(fs_device, sector, disk_inode);
     free(disk_inode);
   }
   return success;
@@ -241,8 +281,74 @@ void inode_close(struct inode* inode) {
 
     /* Deallocate blocks if removed. */
     if (inode->removed) {
+      // todo
       free_map_release(inode->sector, 1);
-      free_map_release(inode->data.start, bytes_to_sectors(inode->data.length));
+
+      // free disk
+      struct inode_disk* disk_inode = &inode->data;
+      int sectors = disk_inode->length;
+      // free_map_release(inode->data.start, bytes_to_sectors(inode->data.length));
+      for (int block_index = sectors-1 ; block_index >= 0 ; block_index--) {
+
+        // allocating data blocks
+        if (block_index < DP_CNT) {
+          //free_map_allocate(1, &disk_inode->dp[block_index]);
+          free_map_release(disk_inode->dp[block_index], 1);
+          //block_write(fs_device, &disk_inode->dp[block_index], zeros);
+        } else if (block_index < DP_CNT + INDIRECT_BLOCK_CNT) {
+          int indirect_index = block_index - DP_CNT;
+          block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+
+          // Im sure it is just indirect_block without pointer
+          // Update indirect block (get new indirect pointer and associated data block)
+          block_read(fs_device, disk_inode -> ip, indirect_block);
+          // free_map_allocate(1, &indirect_block[indirect_index]);
+          free_map_release(indirect_block[indirect_index], 1);
+
+        } else if (block_index < DP_CNT + INDIRECT_BLOCK_CNT + INDIRECT_BLOCK_CNT*INDIRECT_BLOCK_CNT) {
+          // Calculate the indices within the doubly indirect block
+          int doubly_indirect_index = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+          int doubly_indirect_offset = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+
+          // Read the doubly indirect block
+          block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
+          block_read(fs_device, disk_inode -> dip, doubly_indirect_block);
+
+          // Read the indirect block from the doubly indirect block
+          block_sector_t indirect_block[INDIRECT_BLOCK_CNT];
+          block_read(fs_device, doubly_indirect_block[doubly_indirect_index], indirect_block);
+
+          // free the block address of the block allocated
+          free_map_release(indirect_block[doubly_indirect_offset], 1);
+        }
+
+                // allocating indirect pointer block
+        if(block_index == DP_CNT) {
+          // writes a block number
+          free_map_release(disk_inode->ip, 1);
+        }
+        
+        // allocate indirect pointer block of the doubly indirectly pointer blocks <- each time indirect pointer block is full allocate a new one
+        if (block_index >= DP_CNT + INDIRECT_BLOCK_CNT) {
+          int doubly_indirect_index = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) / INDIRECT_BLOCK_CNT;
+          int doubly_indirect_offset = (block_index - DP_CNT - INDIRECT_BLOCK_CNT) % INDIRECT_BLOCK_CNT;
+          if (doubly_indirect_offset == 0) {
+            // get the current block of indirect pointers (pointed to by the doubly indirect pointer)
+            block_sector_t doubly_indirect_block[INDIRECT_BLOCK_CNT];
+            block_read(fs_device, disk_inode -> dip, doubly_indirect_block);
+
+            // Update the doubly_indirect_index-th indirect pointer in the block
+            // free_map_allocate(1, &doubly_indirect_block[doubly_indirect_index]);
+            free_map_release(doubly_indirect_block[doubly_indirect_index], 1);
+          }
+        }
+
+        // allocate doubly indirect pointer block <- only once
+        if (block_index == DP_CNT + INDIRECT_BLOCK_CNT) {
+          free_map_release(disk_inode->dip, 1);
+        }
+
+      }
     }
 
     free(inode);
@@ -316,7 +422,32 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
 
   if (inode->deny_write_cnt)
     return 0;
+  // allocate lock
 
+  disk_inode* disk_inode = &inode->data;
+  int final_end = offset + size  - 1;
+  int limit = disk_inode->length;
+
+  if(final_end > limit) {
+    // update file size is equivalent to updating inode
+    
+    size_t additional_blocks = 0;
+    // if final and limit are part of the same block, we don't need to allocate new blocks
+    if ((final / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
+      additional_blocks = (final / BLOCK_SECTOR_SIZE) - (limit / BLOCK_SECTOR_SIZE);
+    }
+
+    // find where the inode_disk is at from 'limit'
+    block_sector_t sector_idx = byte_to_sector(inode, limit);
+
+    // find how much inode disk should expand from 'final end'
+    for (int i = 0; i < additional_blocks; i++) {
+      int block_index = ___ + i;
+    
+    }
+  }
+
+  // release lock
   while (size > 0) {
     /* Sector to write, starting byte offset within sector. */
     block_sector_t sector_idx = byte_to_sector(inode, offset);

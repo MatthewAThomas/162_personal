@@ -27,10 +27,6 @@ struct dir_entry {
 };
 
 
-bool validate_dir_path(char* path) {
-  //
-}
-
 // struct dir* find_dir_child(struct fd_table* fd_table, int fd) {
 //     for (struct list_elem* e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
 //         struct fd* file_desc = list_entry(e, struct fd, list_fd);
@@ -40,6 +36,14 @@ bool validate_dir_path(char* path) {
 //     } 
 //     return NULL;
 // }
+
+struct dir* get_dir_from_entry(struct dir_entry* entry) {
+  // assumes in_use
+}
+
+
+
+
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -130,24 +134,27 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
       else {
         // not a special character
         // check current directory for the given directory
+        new_ofsp = 0; // reset with each new entry to be checked
         struct dir_entry entry;
         // off_t curr_ofs;
-        if (lookup(curr, token, &entry, new_ofsp)) {
+        if (lookup(curr, token, &entry, new_ofsp)) { // check current directory for given entry
           return false;
         }
         
         e = entry;
+        if (!e.in_use) return false; // indicates that directory was deleted 
         // new_ofsp = &curr_ofs;
         // dir_entry e being next directory or current path
         curr = curr; // TODO: update curr to next dir based on directory entry ENTRY
         // TODO: properly add value for
-
+        // make in case last else not called
+        // how to set ofs?
       }
     }
     if (ep != NULL)
       *ep = e;
     if (ofsp != NULL)
-      *ofsp = ofs;
+      *ofsp = new_ofsp;
     return true;
   } 
   else { // when only checking current dir for a filename (not path)
