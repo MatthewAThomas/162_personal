@@ -464,18 +464,24 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
       additional_blocks = 1;
     }
 
-    int block_index;
-    if (limit == 0) {
-      block_index = 0;
-    } else {
-      block_index = disk_inode -> block_index + 1;
-    }
+    // int block_index = disk_inode -> block_index;
+    // if (limit == 0) {
+    //   block_index = 0;
+    // } else if ((final_end / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
+    //   block_index = disk_inode -> block_index + 1;
+    // }
+
+    // if (block_index == 2) {
+    //   int dumby = 0;
+    // }
 
     // find where the inode_disk is at from 'limit'
     block_sector_t sector_idx = byte_to_sector(inode, limit);
 
     // allocate the necessary amount of data blocks
-    inode_create_helper(additional_blocks, disk_inode, block_index);
+    int end_block = additional_blocks + disk_inode -> block_index;
+    inode_create_helper(end_block, disk_inode, disk_inode -> block_index);
+    disk_inode -> block_index += additional_blocks;
   }
 
   disk_inode->length = (offset + size > limit) ? offset + size : limit;
