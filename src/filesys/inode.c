@@ -445,7 +445,6 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     int block_index = 0;
     int end_block = additional_blocks + block_index;
     inode_create_helper(end_block, disk_inode, block_index);
-    //disk_inode -> block_index = 0; // change; is messing up because of synchronization i think
 
   } else if (final_end > limit) {
     // update file size is equivalent to updating inode
@@ -455,20 +454,6 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     if ((final_end / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
       additional_blocks = (final_end / BLOCK_SECTOR_SIZE) - (limit / BLOCK_SECTOR_SIZE);
     }
-    // } else if (limit == 0) {
-    //   additional_blocks = 1;
-    // }
-
-    // int block_index = disk_inode -> block_index;
-    // if (limit == 0) {
-    //   block_index = 0;
-    // } else if ((final_end / BLOCK_SECTOR_SIZE) != (limit / BLOCK_SECTOR_SIZE)) {
-    //   block_index = disk_inode -> block_index + 1;
-    // }
-
-    // if (block_index == 2) {
-    //   int dumby = 0;
-    // }
 
     // find where the inode_disk is at from 'limit'
     block_sector_t sector_idx = byte_to_sector(inode, limit);
@@ -477,9 +462,6 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     int block_index = disk_inode -> length / BLOCK_SECTOR_SIZE + 1;
     int end_block = additional_blocks + block_index;
     inode_create_helper(end_block, disk_inode, block_index);
-    //disk_inode -> block_index = block_index - 1; //change, race condition?
-    disk_inode -> block_index += additional_blocks;
-
   }
 
   disk_inode->length = (offset + size > limit) ? offset + size : limit;
@@ -560,38 +542,3 @@ off_t inode_length(const struct inode* inode) {
   return disk_inode -> length;
   // return inode->data.length;
 }
-
-
-// /* Direct pointers */
-// for (int i = 0; i < 12; i++) {
-//   if (size <= BLOCK_SECTOR_SIZE * i && id->direct[i] != 0) {
-//     /* Shrink. */
-//     block_free(id->direct[i]);
-//     id->direct[i] = 0;
-//   } else if (size > BLOCK_SECTOR_SIZE * i && id->direct[i] == 0) {
-//     /* Grow. */
-//     id->direct[i] = block_allocate();
-//   }
-// }
-
-// /* Handle indirect pointers. */
-// for (int i = 0; i < 128; i++) {
-//   if (size <= (12 + i) * BLOCK_SECTOR_SIZE && buffer[i] != 0) {
-//     /* Shrink. */
-//     block_free(buffer[i]);
-//     buffer[i] = 0;
-//   } else if ((size > (12 + i) * BLOCK_SECTOR_SIZE) && buffer[i] == 0) {
-//     /* Grow. */
-//     buffer[i] = block_allocate();
-//   }
-// }
-// if (size <= 12 * BLOCK_SECTOR_SIZE) {
-//   /* We shrank the inode such that indirect pointers are no longer  required. */
-//   block_free(id->indirect);
-//   id->indirect = 0;
-// } else {
-//   /* Write updates to the indirect block back to disk.*/
-//   block_write(id->indirect, buffer);
-// }
-// id->length = size;
-
