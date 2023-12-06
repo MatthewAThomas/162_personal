@@ -7,7 +7,8 @@
 #include "filesys/file.h"
 #include "lib/kernel/console.h"
 #include "threads/vaddr.h" 
-
+#include "filesys/directory.h"
+// #include "filesys/directory.c"
 #include "filesys/filesys.h" // added here
 #include "devices/input.h"
 #include <stdlib.h>
@@ -240,11 +241,19 @@ When a single file is opened more than once, whether
 int sys_open(char* name) { // const
   check_valid_ptr((void *)name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
-  struct file* file = filesys_open(name);
+  //struct dir* prev_cwd = thread_current()->cwd;
+  char* file_name = name;
+  // if (is_path(name)) {
+  //   struct dir_entry* entry = get_dir_entry_from_path(char* path);
+  //   // need to change filesys_open to check given directory 
+  //   // name = (get file name, use the separate_parent_and_child thing)
+  // }
+  struct file* file = filesys_open(file_name);
+  struct fd* fd = add(fd_table, file);
+  // // change behavior based on dir or file?
   if (file == NULL) {
     return -1;
   }
-  struct fd* fd = add(fd_table, file);
   return fd->val;
 }
 
@@ -601,13 +610,10 @@ Returns true if successful, false on failure.
 */
 bool sys_chdir(char* dir) {
   check_valid_ptr((void *) dir);
-  // struct dir_entry* curr;
-  // off_t* offset;
-  // if (lookup(thread_current()->pcb->cwd, dir, curr, offset)) {
-  //   thread_current()->pcb->cwd = get_dir_from_entry(curr);
-  //   return true;
-  // }
-  return false;
+  struct dir* curr = get_dir_from_path(dir);
+  if (curr == NULL) return false;
+  thread_current()->pcb->cwd = curr; // does it change the CWD of the given thread too?
+  return true;
 }
 
 /* Creates the directory named dir, which may be relative or absolute. Returns true if successful, false on failure. 
@@ -622,17 +628,16 @@ bool sys_mkdir(char* dir) {
   // make dir in given path
 
   // // get dir but remove the last / with the find occurrence thing
-  char* last = strrchr(dir, '/'); // finds the last entry (the new directory name);
-  // char* prev_dir[strlen(dir) - strlen(last) + 1];
-  // strncpy(prev_dir, dir, strlen(dir) - strlen(last) + 1);
+  char* file; // finds the last entry (the new directory name);
+  separate_parent_and_child(&dir, &file);
 
-  // struct dir* curr_dir = get_dir_from_path(prev_dir);
-  // if (dir == NULL) return false; // indicates that a directory in the path DNE
-  // // check if dir exists in CWD
-  // return dir_add(curr_dir, *(last + 1), block_sector_t inode_sector); // returns false if already exists in CWD
-  // // create dir
-  // // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
-  return false;
+  struct dir* curr_dir = get_dir_from_path(dir);
+  if (curr_dir == NULL) return false; // indicates that a directory in the path DNE
+  // check if dir exists in CWD
+  // return dir_add(curr_dir, file, curr_dir->inode->sector); // returns false if already exists in CWD; assuming adding to given directory
+  return false; // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
+  // create dir
+  // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
 }
 
 
@@ -654,6 +659,7 @@ bool sys_isdir(int fd) {
     return false;
   }
   return file_desc->is_dir;
+  // need to double check logic for updating FD is_dir
 }
 
 
@@ -664,5 +670,11 @@ We have provided the ls and mkdir user programs, which are straightforward once 
 The pintos extract and pintos append commands should now accept full path names, assuming that the directories used in the paths have already been created. This should not require any significant extra effort on your part.
 */
 int sys_inumber(int fd) {
+  struct fd* file_desc = find(thread_current()->pcb->fd_table, fd);
+  if (file_desc == NULL) {
+    return -1;
+  }
+  // return file_desc->file->inode->sector; // assumes the inode number is the sector number
+  // inumber not yet set up?
   return -1;
 }

@@ -9,7 +9,9 @@
 #include "userprog/tss.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
+// #include "filesys/file.c"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -98,7 +100,6 @@ pid_t process_execute(const char* file_name) {
   sema_init(&(start_cmd.process_sema), 0);
   start_cmd.children = &(thread_current() -> pcb -> children);
   start_cmd.has_exec = thread_current()->pcb->has_exec;
-  struct dir* cwd = thread_current()->pcb->cwd;
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
   
@@ -175,7 +176,15 @@ static void start_process(void* start_cmd) {
 
     // Initialize shared_data;
     init_shared_data(new_shared_data); 
-    new_pcb->cwd = t->parent_cwd;   
+    if (t->pcb->cwd== NULL) { // inherit caller thread pcb or process?
+      struct dir* dir = dir_open_root();
+      new_pcb->cwd = dir;
+      t->pcb->cwd = dir;
+      dir_close(dir);
+    }
+    else {
+      new_pcb->cwd = t->pcb->cwd;  
+    } 
   
     // Set new_fd_table as the fd_table of new_pcb
     new_pcb -> fd_table = new_fd_table;
@@ -893,7 +902,7 @@ struct fd* add(struct fd_table* fd_table, struct file* file) {
   struct list_elem* e = &(file_descriptor->list_fd);
   file_descriptor->val = fd_table->next_unused_fd;
   file_descriptor->file = file;
-  //file_descriptor->is_dir = file->is_dir; // TODO: figure out how best to add is_dir
+  file_descriptor->is_dir = is_directory_file(file); // TODO: figure out how best to add is_dir
   fd_table->next_unused_fd += 1;
   list_push_back(&(fd_table->fds), e);
   file_descriptor->list_fd = *e;

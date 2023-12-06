@@ -30,5 +30,6 @@ off_t file_length(struct file*);
 
 /* Additional helpers (added). */
 bool can_write_to_file(struct file* file);
+bool is_directory_file(struct file* file);
 
 #endif /* filesys/file.h */

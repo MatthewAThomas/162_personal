@@ -100,7 +100,7 @@ struct thread {
 
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
-  struct dir* parent_cwd;
+  struct dir* cwd; 
 };
 
 /* Types of scheduler that the user can request the kernel

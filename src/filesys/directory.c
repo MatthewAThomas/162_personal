@@ -5,6 +5,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
+
 
 /* A directory. */
 struct dir {
@@ -18,7 +20,7 @@ struct dir {
   // resolve lookup with lookup() and check if the file is a directory or file
 };
 
-/* A single directory entry. Refers to a file. */
+/* A single directory entry. Refers to a file that can be either a directory or a normal file. */
 struct dir_entry {
   block_sector_t inode_sector; /* Sector number of header. */
   char name[NAME_MAX + 1];     /* Null terminated file name. */
@@ -26,7 +28,7 @@ struct dir_entry {
   bool is_dir;  // remove from FD and file accordingly?
 };
 
-
+static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp);
 // struct dir* find_dir_child(struct fd_table* fd_table, int fd) {
 //     for (struct list_elem* e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
 //         struct fd* file_desc = list_entry(e, struct fd, list_fd);
@@ -37,20 +39,72 @@ struct dir_entry {
 //     return NULL;
 // }
 
+
+/* Need to call dir_close on directory after returning. */
 struct dir* get_dir_from_entry(struct dir_entry* entry) {
   // assumes in_use
-
+  // should find a more efficient way to do this
+  struct inode* inode = inode_open(entry->inode_sector);
+  if (is_directory(inode)) {
+    struct dir* dir = dir_open(inode);
+    inode_close(inode); 
+    return dir;
+  }
+  inode_close(inode);
   return NULL;
 }
 
+/* Returns NULL if something fails.*/
+struct dir* get_dir_from_path(char* path) {
+  return get_dir_from_entry(get_dir_entry_from_path(path));
+}
 
+struct dir_entry* get_dir_entry_from_path(char* path) {
+  struct dir_entry* curr;
+  off_t* offset;
+  if (lookup(thread_current()->cwd, path, curr, offset)) {
+    return curr;
+  }
+  return NULL;
+}
+
+bool is_path(char* path) {
+  if (strchr(path, '/') != NULL) return true;
+  return false;
+}
+
+/* Separates the directory in PATH from the file or last directory. 
+Puts the name of the final directory or file in DEST. 
+Removes the directory from path. */
+bool separate_parent_and_child(char** path, char** dest) {
+  // basically cut out at the last / filename
+  int path_len = strlen(*path);
+  char* last = strrchr(*path, '/'); 
+  int last_len = strlen(last);
+  // finds the last entry (the new directory name);
+  // todo: check if test directories end in / or not
+  char prev_dir[path_len - last_len + 1];
+  strlcpy(prev_dir, *path, path_len - last_len); // need room for \'0'
+  prev_dir[path_len - last_len] = '\0'; // strncpy does not null terminate
+  *dest = (last + 1); // strrchr gets the index of the '/', so we need to skip the first character
+  *path = prev_dir;
+}
 
 
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+  struct inode* inode;
+  bool status = inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+  // add flag here to inode
+  if (status) {
+    inode = inode_open(sector);
+    set_dir_status(inode, true);
+    inode_close(inode);
+    return true;
+  }
+  return false;
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -105,13 +159,12 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
 
   ASSERT(dir != NULL);
   ASSERT(name != NULL);
-  
-  if (name[0] == '/') { // when given a path instead of the file name only
+  if (strchr(name, '/') != NULL) { // when given a path instead of the file name only
     int len = strlen(name);
     struct dir* curr;
     if (name[0] == '/') {
-      //curr = ROOT_DIR;
-      curr = dir;
+      curr = dir_open_root();
+      dir_close(curr);
     }
     else {
       curr = dir;
@@ -138,23 +191,23 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
         // not a special character
         // check current directory for the given directory
         new_ofsp = 0; // reset with each new entry to be checked
-        struct dir_entry entry;
+        struct dir_entry* entry;
         // off_t curr_ofs;
-        if (lookup(curr, token, &entry, new_ofsp)) { // check current directory for given entry
+        if (lookup(curr, token, entry, new_ofsp)) { // check current directory for given entry
           return false;
         }
         
-        e = entry;
+        e = *entry;
         if (!e.in_use) return false; // indicates that directory was deleted 
         // new_ofsp = &curr_ofs;
         // dir_entry e being next directory or current path
-        curr = curr; // TODO: update curr to next dir based on directory entry ENTRY
+        curr = get_dir_from_entry(entry); // TODO: update curr to next dir based on directory entry ENTRY
         // TODO: properly add value for
         // make in case last else not called
         // how to set ofs?
       }
     }
-    if (ep != NULL)
+    if (ep != NULL) // triggers when done going through rest of path
       *ep = e;
     if (ofsp != NULL)
       *ofsp = new_ofsp;
@@ -234,6 +287,15 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
     return false;
 
   /* Check that NAME is not in use. */
+  struct dir* curr = dir;
+  // if (strnchr(name, '/') != NULL) { // name is a path 
+    
+  //   struct dir* curr = get_dir_from_path(name); // would need to remove name of file
+  //   if (curr == NULL) {
+  //     goto done;
+  //   } 
+  // }
+
   if (lookup(dir, name, NULL, NULL))
     goto done;
 
