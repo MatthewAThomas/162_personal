@@ -6,7 +6,7 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
-
+#include "userprog/process.h"
 
 /* A directory. */
 struct dir {
@@ -20,12 +20,12 @@ struct dir {
   // resolve lookup with lookup() and check if the file is a directory or file
 };
 
-/* A single directory entry. Refers to a file that can be either a directory or a normal file. */
-struct dir_entry {
-  block_sector_t inode_sector; /* Sector number of header. */
-  char name[NAME_MAX + 1];     /* Null terminated file name. */
-  bool in_use;                 /* In use or free? */
-};
+// /* A single directory entry. Refers to a file that can be either a directory or a normal file. */
+// struct dir_entry {
+//   block_sector_t inode_sector; /* Sector number of header. */
+//   char name[NAME_MAX + 1];     /* Null terminated file name. */
+//   bool in_use;                 /* In use or free? */
+// };
 
 static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp);
 
@@ -34,13 +34,11 @@ struct dir* get_dir_from_entry(struct dir_entry* entry) {
   // assumes in_use
   // should find a more efficient way to do this
   struct inode* inode = inode_open(entry->inode_sector);
-  // if (is_directory(inode)) {
-  if (1) {
+  if (is_directory(inode)) {
     struct dir* dir = dir_open(inode);
-    inode_close(inode); 
-    return dir;
+    return dir; // dir_close should be called by caller
   }
-  inode_close(inode);
+  inode_close(inode); 
   return NULL;
 }
 
@@ -88,12 +86,12 @@ bool dir_create(block_sector_t sector, size_t entry_cnt) {
   struct inode* inode;
   bool status = inode_create(sector, entry_cnt * sizeof(struct dir_entry));
   //add flag here to inode
-  if (status) {
-    inode = inode_open(sector);
-    set_dir_status(inode, true);
-    inode_close(inode);
-    return status;
-  }
+  // if (status) {
+  //   inode = inode_open(sector);
+  //   set_dir_status(inode, true);
+  //   inode_close(inode);
+  //   return status;
+  // }
   return status;
 }
 

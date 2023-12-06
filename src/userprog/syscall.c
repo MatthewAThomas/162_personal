@@ -629,11 +629,12 @@ bool sys_mkdir(char* dir) {
 
   // // get dir but remove the last / with the find occurrence thing
   char* file; // finds the last entry (the new directory name);
-  struct dir* curr_dir = get_dir_from_path(dir);
-  if (curr_dir == NULL) return false; // indicates that a directory in the path DNE
+  struct dir_entry* curr = lookup_from_path(dir);
+  if (curr == NULL) return false; // indicates that a directory in the path DNE
   // check if dir exists in CWD
-  // return dir_add(curr_dir, file, curr_dir->inode->sector); // returns false if already exists in CWD; assuming adding to given directory
-  return false; // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
+  // sector number can be gotten from dir_entry
+  return dir_add(get_dir_from_entry(curr), file, curr->inode_sector); // returns false if already exists in CWD; assuming adding to given directory
+  // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
   // create dir
   // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
 }
