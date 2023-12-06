@@ -25,7 +25,7 @@ struct inode_disk {
   block_sector_t ip;  // block index
   block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
-  bool is_dir;
+  //bool is_dir;
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -43,12 +43,13 @@ struct inode {
 };
 
 bool is_directory(struct inode* inode) {
-  return inode->data.is_dir;
+  // return inode->data.is_dir;
+  return false;
 }
 
-void set_dir_status(struct inode* inode, bool status) {
-  inode->data.is_dir = status;
-}
+// void set_dir_status(struct inode* inode, bool status) {
+//   inode->data.is_dir = status;
+// }
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -219,7 +220,7 @@ bool inode_create(block_sector_t sector, off_t length) { // sector is where inod
     size_t sectors = bytes_to_sectors(length); // number of sectors that has to be allocated will remain the same
     disk_inode->length = length; // length is file size in bytes
     disk_inode->magic = INODE_MAGIC;
-    disk_inode->is_dir = false; // false by default; changed to true if directory.c funcs called
+    //disk_inode->is_dir = false; // false by default; changed to true if directory.c funcs called
     // continuous allocation
     // modify the code to save the block addresses of all blocks allocated
 
