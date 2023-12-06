@@ -629,8 +629,6 @@ bool sys_mkdir(char* dir) {
 
   // // get dir but remove the last / with the find occurrence thing
   char* file; // finds the last entry (the new directory name);
-  separate_parent_and_child(&dir, &file);
-
   struct dir* curr_dir = get_dir_from_path(dir);
   if (curr_dir == NULL) return false; // indicates that a directory in the path DNE
   // check if dir exists in CWD

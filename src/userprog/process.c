@@ -64,6 +64,7 @@ struct start_cmd {
   struct semaphore process_sema;
   struct list *children;
   bool has_exec;
+  struct dir* parent_dir;
 };
 
 pid_t process_execute(const char* file_name) {
@@ -100,6 +101,7 @@ pid_t process_execute(const char* file_name) {
   sema_init(&(start_cmd.process_sema), 0);
   start_cmd.children = &(thread_current() -> pcb -> children);
   start_cmd.has_exec = thread_current()->pcb->has_exec;
+  start_cmd.parent_dir = thread_current()->pcb->cwd;
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(prog_name, PRI_DEFAULT, start_process, &start_cmd);
   
@@ -170,7 +172,7 @@ static void start_process(void* start_cmd) {
     //Initialize child list and semaphore
     list_init(&(new_pcb -> children));
     sema_init(&(new_pcb -> list_sema), 0);
-
+    new_pcb->cwd = child_cmd->parent_dir;
     // Initialize fd_table
     init_table(new_fd_table);
 

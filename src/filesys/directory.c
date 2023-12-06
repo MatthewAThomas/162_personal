@@ -28,16 +28,6 @@ struct dir_entry {
 };
 
 static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp);
-// struct dir* find_dir_child(struct fd_table* fd_table, int fd) {
-//     for (struct list_elem* e = list_begin(&fd_table->fds); e != list_end(&fd_table->fds); e = list_next(e)) {
-//         struct fd* file_desc = list_entry(e, struct fd, list_fd);
-//         if (file_desc != NULL && file_desc->val == fd) {
-//             return file_desc;
-//         }
-//     } 
-//     return NULL;
-// }
-
 
 /* Need to call dir_close on directory after returning. */
 struct dir* get_dir_from_entry(struct dir_entry* entry) {
@@ -56,16 +46,7 @@ struct dir* get_dir_from_entry(struct dir_entry* entry) {
 
 /* Returns NULL if something fails.*/
 struct dir* get_dir_from_path(char* path) {
-  return get_dir_from_entry(get_dir_entry_from_path(path));
-}
-
-struct dir_entry* get_dir_entry_from_path(char* path) {
-  struct dir_entry* curr;
-  off_t* offset;
-  if (lookup(thread_current()->cwd, path, curr, offset)) {
-    return curr;
-  }
-  return NULL;
+  return get_dir_from_entry(lookup_from_path(path));
 }
 
 bool is_path(char* path) {
@@ -73,37 +54,46 @@ bool is_path(char* path) {
   return false;
 }
 
-/* Separates the directory in PATH from the file or last directory. 
-Puts the name of the final directory or file in DEST. 
-Removes the directory from path. */
-bool separate_parent_and_child(char** path, char** dest) {
-  // basically cut out at the last / filename
-  int path_len = strlen(*path);
-  char* last = strrchr(*path, '/'); 
-  int last_len = strlen(last);
-  // finds the last entry (the new directory name);
-  // todo: check if test directories end in / or not
-  char prev_dir[path_len - last_len + 1];
-  strlcpy(prev_dir, *path, path_len - last_len); // need room for \'0'
-  prev_dir[path_len - last_len] = '\0'; // strncpy does not null terminate
-  *dest = (last + 1); // strrchr gets the index of the '/', so we need to skip the first character
-  *path = prev_dir;
+/* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
+   next call will return the next file name part. Returns 1 if successful, 0 at
+   end of string, -1 for a too-long file name part. */
+static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+  const char* src = *srcp;
+  char* dst = part;
+
+  /* Skip leading slashes.  If it's all slashes, we're done. */
+  while (*src == '/')
+    src++;
+  if (*src == '\0')
+    return 0;
+
+  /* Copy up to NAME_MAX character from SRC to DST.  Add null terminator. */
+  while (*src != '/' && *src != '\0') {
+    if (dst < part + NAME_MAX)
+      *dst++ = *src;
+    else
+      return -1;
+    src++;
+  }
+  *dst = '\0';
+
+  /* Advance source pointer. */
+  *srcp = src;
+  return 1;
 }
-
-
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
   struct inode* inode;
   bool status = inode_create(sector, entry_cnt * sizeof(struct dir_entry));
-  // add flag here to inode
-  // if (status) {
-  //   inode = inode_open(sector);
-  //   set_dir_status(inode, true);
-  //   inode_close(inode);
-  //   return status;
-  // }
+  //add flag here to inode
+  if (status) {
+    inode = inode_open(sector);
+    set_dir_status(inode, true);
+    inode_close(inode);
+    return status;
+  }
   return status;
 }
 
@@ -148,88 +138,60 @@ struct inode* dir_get_inode(struct dir* dir) {
   return dir->inode;
 }
 
-/* Searches DIR for a file with the given NAME.
-   If successful, returns true, sets *EP to the directory entry
-   if EP is non-null, and sets *OFSP to the byte offset of the
-   directory entry if OFSP is non-null.
-   otherwise, returns false and ignores EP and OFSP. */
-static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp) {
-  struct dir_entry e;
-  size_t ofs;
+// Avoid checking if the filename at the end is valid.
+struct dir_entry* lookup_only_parent(char* name) {
+  char* filename = strrchr(name, '/');
+  if (filename != NULL) {
+    char parent_path[strlen(name) - strlen(filename) + 1];
+    strlcpy(parent_path, name, strlen(name) - strlen(filename));
+    parent_path[strlen(name) - strlen(filename)] = '\0';
+  }
+  else {
+    return lookup_from_path(name);
+  }
+}
 
-  ASSERT(dir != NULL);
+struct dir_entry* lookup_from_path(char* name) {
   ASSERT(name != NULL);
-  if (strchr(name, '/') != NULL) { // when given a path instead of the file name only
-    int len = strlen(name);
-    struct dir* curr;
-    if (name[0] == '/') {
-      curr = dir_open_root();
-      dir_close(curr);
+  char filename[NAME_MAX + 1];
+  struct dir* curr;
+  struct dir_entry* ret;
+
+  if (name[0] == '/') {
+    curr = dir_open_root();
+    dir_close(curr);
+  }
+  else {
+    curr = thread_current()->pcb->cwd;
+  }
+  int len = strlen(name);
+  char curr_path[len + 1];
+  strlcpy(curr_path, name, len + 1);
+  
+  while (strchr(curr_path, '/') != NULL) {
+    if (get_next_part(filename, &curr_path) == -1) {
+      return NULL; // indicates that input directory doesnt exist
+    }
+    if (strcmp(filename, "..") == 0) {
+      curr = curr->parent;
+    }
+    else if (strcmp(filename, ".") == 0) {
+      // do nothing
     }
     else {
-      curr = dir;
-      // thread_current()->pcb->cwd;
-    }
-
-    char tokenizer_input[len + 1];
-    strlcpy(tokenizer_input, name, len + 1); // len + 1 for null character?
-    char* rest = NULL; // or = name
-    char* token;
-    off_t* new_ofsp;
-    for (token = strtok_r(tokenizer_input, "/", &rest); token != NULL; token = strtok_r(NULL, "/", &rest)) {
-      if (strcmp(token, "..") == 0) {
-        curr = curr->parent;
+      if (!lookup(curr, filename, ret, NULL)) {
+        return NULL; 
       }
-      else if (strcmp(token, ".") == 0 || strcmp(token, "") == 0) {
-        continue; 
-        // no change, CWD
-        // OR
-        // when first character is / or last character is /
-        // therefore, do nothing
-      }
-      else {
-        // not a special character
-        // check current directory for the given directory
-        new_ofsp = 0; // reset with each new entry to be checked
-        struct dir_entry* entry;
-        // off_t curr_ofs;
-        if (lookup(curr, token, entry, new_ofsp)) { // check current directory for given entry
-          return false;
-        }
-        
-        e = *entry;
-        if (!e.in_use) return false; // indicates that directory was deleted 
-        // new_ofsp = &curr_ofs;
-        // dir_entry e being next directory or current path
-        curr = get_dir_from_entry(entry); // TODO: update curr to next dir based on directory entry ENTRY
-        // TODO: properly add value for
-        // make in case last else not called
-        // how to set ofs?
-      }
-    }
-    if (ep != NULL) // triggers when done going through rest of path
-      *ep = e;
-    if (ofsp != NULL)
-      *ofsp = new_ofsp;
-    return true;
-  } 
-  else { // when only checking current dir for a filename (not path)
-    for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-      if (e.in_use && !strcmp(name, e.name)) {
-        if (ep != NULL)
-          *ep = e;
-        if (ofsp != NULL)
-          *ofsp = ofs;
-        return true;
-      }
+      curr = get_dir_from_entry(ret);
     }
   }
 
-  return false;
+  lookup(curr, filename, ret, NULL); // should be on filename / last dir
+  return ret;
 }
 
 // original lookup
-/* 
+// looks in DIR for NAME and stores the corresponding dir_entry in EP with offset OFSP
 static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp) {
   struct dir_entry e;
   size_t ofs;
@@ -247,8 +209,6 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
     }
   return false;
 }
-
-*/
 
 /* Searches DIR for a file with the given NAME
    and returns true if one exists, false otherwise.

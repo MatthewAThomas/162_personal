@@ -25,7 +25,7 @@ struct inode_disk {
   block_sector_t ip;  // block index
   block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
-  //bool is_dir;
+  //bool is_dir; // todo: set this + edit the length or smth to avoid kernel panic
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
