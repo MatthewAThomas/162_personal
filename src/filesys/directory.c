@@ -80,18 +80,85 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   return 1;
 }
 
+// Avoid checking if the filename at the end is valid.
+struct dir_entry* lookup_only_parent(char* name) {
+  char* filename = strrchr(name, '/');
+  if (filename != NULL) {
+    char parent_path[strlen(name) - strlen(filename) + 1];
+    strlcpy(parent_path, name, strlen(name) - strlen(filename));
+    parent_path[strlen(name) - strlen(filename)] = '\0';
+    return lookup_from_path(parent_path);
+  }
+  else {
+    return lookup_from_path(name);
+  }
+}
+
+char* get_filename_from_path(char* name) {
+  char* filename = strrchr(name, '/');
+  if (filename != NULL) {
+    return filename + sizeof(char);
+  }
+  else {
+    return name;
+  }
+}
+
+struct dir_entry* lookup_from_path(char* name) {
+  ASSERT(name != NULL);
+  char filename[NAME_MAX + 1];
+  struct dir* curr;
+  struct dir_entry* ret = NULL;
+
+  if (name[0] == '/') {
+    curr = dir_open_root();
+    dir_close(curr);
+  }
+  else {
+    curr = thread_current()->pcb->cwd;
+  }
+  int len = strlen(name);
+  char* curr_path[len + 1];
+  strlcpy(*curr_path, name, len + 1);
+  // char* p = &a[0] 
+  // const char** srcp
+  
+  while (strchr(*curr_path, '/') != NULL) {
+    // if (get_next_part(filename, &curr_path[0]) == -1) {
+    if (get_next_part(filename, curr_path) == -1) {
+      return NULL; // indicates that input directory doesnt exist
+    }
+    if (strcmp(filename, "..") == 0) {
+      curr = curr->parent;
+    }
+    else if (strcmp(filename, ".") == 0) {
+      // do nothing
+    }
+    else {
+      if (!lookup(curr, filename, ret, NULL)) {
+        return NULL; 
+      }
+      curr = get_dir_from_entry(ret);
+    }
+  }
+
+  lookup(curr, filename, ret, NULL); // should be on filename / last dir
+  if (ret != NULL && ret->in_use == false) return NULL;
+  return ret;
+}
+
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
   struct inode* inode;
   bool status = inode_create(sector, entry_cnt * sizeof(struct dir_entry));
-  //add flag here to inode
-  // if (status) {
-  //   inode = inode_open(sector);
-  //   set_dir_status(inode, true);
-  //   inode_close(inode);
-  //   return status;
-  // }
+  // add flag here to inode
+  if (status) {
+    inode = inode_open(sector);
+    set_dir_status(inode, true);
+    inode_close(inode);
+    return status;
+  }
   return status;
 }
 
@@ -128,7 +195,6 @@ void dir_close(struct dir* dir) {
     inode_close(dir->inode);
     free(dir);
   }
-  // TODO: empty the lists and everything
 }
 
 /* Returns the inode encapsulated by DIR. */
@@ -136,57 +202,6 @@ struct inode* dir_get_inode(struct dir* dir) {
   return dir->inode;
 }
 
-// Avoid checking if the filename at the end is valid.
-struct dir_entry* lookup_only_parent(char* name) {
-  char* filename = strrchr(name, '/');
-  if (filename != NULL) {
-    char parent_path[strlen(name) - strlen(filename) + 1];
-    strlcpy(parent_path, name, strlen(name) - strlen(filename));
-    parent_path[strlen(name) - strlen(filename)] = '\0';
-  }
-  else {
-    return lookup_from_path(name);
-  }
-}
-
-struct dir_entry* lookup_from_path(char* name) {
-  ASSERT(name != NULL);
-  char filename[NAME_MAX + 1];
-  struct dir* curr;
-  struct dir_entry* ret;
-
-  if (name[0] == '/') {
-    curr = dir_open_root();
-    dir_close(curr);
-  }
-  else {
-    curr = thread_current()->pcb->cwd;
-  }
-  int len = strlen(name);
-  char curr_path[len + 1];
-  strlcpy(curr_path, name, len + 1);
-  
-  while (strchr(curr_path, '/') != NULL) {
-    if (get_next_part(filename, &curr_path) == -1) {
-      return NULL; // indicates that input directory doesnt exist
-    }
-    if (strcmp(filename, "..") == 0) {
-      curr = curr->parent;
-    }
-    else if (strcmp(filename, ".") == 0) {
-      // do nothing
-    }
-    else {
-      if (!lookup(curr, filename, ret, NULL)) {
-        return NULL; 
-      }
-      curr = get_dir_from_entry(ret);
-    }
-  }
-
-  lookup(curr, filename, ret, NULL); // should be on filename / last dir
-  return ret;
-}
 
 // original lookup
 // looks in DIR for NAME and stores the corresponding dir_entry in EP with offset OFSP
@@ -246,6 +261,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
 
   /* Check that NAME is not in use. */
   struct dir* curr = dir;
+  // TODO: check for name in current directory, then move to DIR
   // if (strnchr(name, '/') != NULL) { // name is a path 
     
   //   struct dir* curr = get_dir_from_path(name); // would need to remove name of file
@@ -272,6 +288,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   e.in_use = true;
   strlcpy(e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
+  e.entry_count += 1;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
 
 done:
@@ -299,14 +316,29 @@ bool dir_remove(struct dir* dir, const char* name) {
   if (inode == NULL)
     goto done;
 
-  /* Erase directory entry. */
-  e.in_use = false;
-  if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
-    goto done;
+  bool can_delete = false;
 
-  /* Remove inode. */
-  inode_remove(inode);
-  success = true;
+  if (is_directory(inode)) {
+    // check if empty first
+    // inode_close if not and return success
+    if (e.entry_count == 0) can_delete = true;
+    
+  }
+  else { 
+    can_delete = true;
+  }
+
+  if (can_delete) {
+    /* Erase directory entry. */
+    e.in_use = false;
+    if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
+      goto done;
+
+    /* Remove inode. */
+    inode_remove(inode);
+    success = true;
+  }
+  
 
 done:
   inode_close(inode);

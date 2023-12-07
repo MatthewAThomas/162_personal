@@ -628,11 +628,17 @@ bool sys_mkdir(char* dir) {
   // make dir in given path
 
   // // get dir but remove the last / with the find occurrence thing
-  char* file; // finds the last entry (the new directory name);
-  struct dir_entry* curr = lookup_from_path(dir);
+  struct dir_entry* curr = lookup_only_parent(dir);
   if (curr == NULL) return false; // indicates that a directory in the path DNE
   // check if dir exists in CWD
   // sector number can be gotten from dir_entry
+
+  
+  char* file = get_filename_from_path(name); // finds the last entry (the new directory name);
+  
+  free_map_allocate(1, &(curr->inode_sector));
+  dir_create(curr->inode_sector, 16);
+
   return dir_add(get_dir_from_entry(curr), file, curr->inode_sector); // returns false if already exists in CWD; assuming adding to given directory
   // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
   // create dir
@@ -647,8 +653,41 @@ READDIR_MAX_LEN is defined in lib/user/syscall.h. If your file system supports l
 */
 bool sys_readdir(int fd, char* name) {
   check_valid_ptr((void *) name);
-  return false;
-}
+
+  struct fd_table* fd_table = thread_current()->pcb->fd_table;
+  struct fd* file_desc = find(fd_table, fd);
+  if (file_desc == NULL || !file_desc->is_dir) {
+    return false;
+  }
+  struct file* file = file_desc->file; 
+  // check if FD corresponds to a directory
+  // check if NAME has enough size to store the name
+  // reads through ALL the names
+
+// struct file {
+//   struct inode* inode; /* File's inode. */
+//   off_t pos;           /* Current position. */
+//   bool deny_write;     /* Has file_deny_write() been called? */
+// };
+
+
+//   struct dir_entry* entry = get_dir_entry_from_path(name);
+//   return false;
+// }
+
+// struct dir_entry* get_entry_from_file(struct file* file) {
+//   struct dir_entry e = NULL;
+//   size_t ofs;
+//   for (ofs = 0; inode_read_at(file->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
+//     if (e.in_use && !strcmp(name, e.name)) { //
+//       if (ep != NULL)
+//         *ep = e;
+//       if (ofsp != NULL)
+//         *ofsp = ofs;
+//       return e;
+//     }
+//   return e;
+// }
 
 
 /* Returns true if fd represents a directory, false if it represents an ordinary file. */

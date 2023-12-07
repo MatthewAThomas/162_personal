@@ -22,5 +22,6 @@ off_t inode_length(const struct inode*);
 
 bool is_directory(struct inode* inode);
 void set_dir_status(struct inode* inode, bool);
+// bool inode_create_helper(size_t sectors, struct inode_disk *disk_inode, int block_index);
 
 #endif /* filesys/inode.h */

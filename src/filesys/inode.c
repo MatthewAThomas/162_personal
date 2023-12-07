@@ -6,11 +6,14 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
+
+struct lock inode_write_lock;
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 #define INDIRECT_BLOCK_CNT 128
-#define DP_CNT 123 
+#define DP_CNT 122 
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -21,11 +24,11 @@ struct inode_disk {
   off_t length;         /* File size in bytes. */ //4
   unsigned magic;       /* Magic number. */ //4
   int block_index;
+  int is_dir; /*0 if file, 1 if directory*/
   block_sector_t dp[DP_CNT]; // typedef uint32_t block_sector_t;        
   block_sector_t ip;  // block index
   block_sector_t dip; // pointer to a pointer to direct block
   //uint32_t unused[125]; /* Not used. */
-  //bool is_dir; // todo: set this + edit the length or smth to avoid kernel panic
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -43,13 +46,12 @@ struct inode {
 };
 
 bool is_directory(struct inode* inode) {
-  // return inode->data.is_dir;
-  return false;
+  return inode->data.is_dir;
 }
 
-// void set_dir_status(struct inode* inode, bool status) {
-//   inode->data.is_dir = status;
-// }
+void set_dir_status(struct inode* inode, bool status) {
+  inode->data.is_dir = status;
+}
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -220,7 +222,7 @@ bool inode_create(block_sector_t sector, off_t length) { // sector is where inod
     size_t sectors = bytes_to_sectors(length); // number of sectors that has to be allocated will remain the same
     disk_inode->length = length; // length is file size in bytes
     disk_inode->magic = INODE_MAGIC;
-    //disk_inode->is_dir = false; // false by default; changed to true if directory.c funcs called
+    disk_inode->is_dir = false;
     // continuous allocation
     // modify the code to save the block addresses of all blocks allocated
 
@@ -442,6 +444,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   if (inode->deny_write_cnt)
     return 0;
   // allocate lock
+  // lock_acquire(&inode_write_lock);
 
   // char inode_buffer[BLOCK_SECTOR_SIZE];
   // block_read(fs_device, inode->sector, inode_buffer);
@@ -479,6 +482,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
   memcpy(&inode -> data, disk_inode, BLOCK_SECTOR_SIZE);
 
   // release lock
+  // lock_release(&inode_write_lock);
 
   while (size > 0) {
     /* Sector to write, starting byte offset within sector. */
