@@ -346,7 +346,7 @@ bool dir_remove(struct dir* dir, const char* name) {
     goto done;
 
   bool can_delete = false;
-
+  e.entry_cnt -= 1;
   if (is_directory(inode)) {
     // check if empty first
     // inode_close if not and return success
@@ -362,7 +362,6 @@ bool dir_remove(struct dir* dir, const char* name) {
     e.in_use = false;
     if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
       goto done;
-
     /* Remove inode. */
     inode_remove(inode);
     success = true;

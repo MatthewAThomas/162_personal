@@ -652,12 +652,12 @@ bool sys_mkdir(char* dir) {
     // struct dir* parent = get_dir_from_entry(curr);
     bool success = dir_create(block, 16);
     struct dir* curr = get_dir_from_entry(curr_entry);
-    success = success && dir_add(get_dir_from_entry(curr_entry), dir, block);
+    success = success && dir_add(get_dir_from_entry(curr_entry), get_filename_from_path(dir), block);
     dir_close(curr);
     return curr;
   }
   else {
-    struct dir* curr;
+    struct dir* curr = thread_current()->pcb->cwd;
     if (curr == NULL) {
       curr = dir_open_root();
     }
