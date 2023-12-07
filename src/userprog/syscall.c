@@ -634,12 +634,17 @@ bool sys_mkdir(char* dir) {
   // sector number can be gotten from dir_entry
 
   
-  char* file = get_filename_from_path(name); // finds the last entry (the new directory name);
+  char* file = get_filename_from_path(dir); // finds the last entry (the new directory name);
   
   free_map_allocate(1, &(curr->inode_sector));
-  dir_create(curr->inode_sector, 16);
+  struct dir* parent = get_dir_from_entry(curr);
+  // add to parent directory
+  // todo, check that given dir_entry is a dir
+  // set created directory to have a parent
+  // filesys_create?
+  return dir_create(curr->inode_sector, 16);
 
-  return dir_add(get_dir_from_entry(curr), file, curr->inode_sector); // returns false if already exists in CWD; assuming adding to given directory
+  //return dir_add(get_dir_from_entry(curr), file, curr->inode_sector); // returns false if already exists in CWD; assuming adding to given directory
   // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
   // create dir
   // That is, mkdir("/a/b/c") succeeds only if /a/b already exists and /a/b/c does not.
@@ -652,7 +657,7 @@ If the directory changes while it is open, then it is acceptable for some entrie
 READDIR_MAX_LEN is defined in lib/user/syscall.h. If your file system supports longer file names than the basic file system, you should increase this value from the default of 14.
 */
 bool sys_readdir(int fd, char* name) {
-  check_valid_ptr((void *) name);
+  check_valid_ptr((void *) name); // need to check that it is still valid READDIR_MAX_LEN + 1 bytes later
 
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   struct fd* file_desc = find(fd_table, fd);
@@ -663,6 +668,8 @@ bool sys_readdir(int fd, char* name) {
   // check if FD corresponds to a directory
   // check if NAME has enough size to store the name
   // reads through ALL the names
+
+  
 
 // struct file {
 //   struct inode* inode; /* File's inode. */
@@ -688,7 +695,7 @@ bool sys_readdir(int fd, char* name) {
 //     }
 //   return e;
 // }
-
+}
 
 /* Returns true if fd represents a directory, false if it represents an ordinary file. */
 bool sys_isdir(int fd) {

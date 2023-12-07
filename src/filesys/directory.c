@@ -81,6 +81,7 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
 }
 
 // Avoid checking if the filename at the end is valid.
+
 struct dir_entry* lookup_only_parent(char* name) {
   char* filename = strrchr(name, '/');
   if (filename != NULL) {
@@ -104,10 +105,12 @@ char* get_filename_from_path(char* name) {
   }
 }
 
+// Close dir as necessary to avoid leakage
 struct dir_entry* lookup_from_path(char* name) {
   ASSERT(name != NULL);
   char filename[NAME_MAX + 1];
   struct dir* curr;
+  struct dir* prev;
   struct dir_entry* ret = NULL;
 
   if (name[0] == '/') {
@@ -117,11 +120,14 @@ struct dir_entry* lookup_from_path(char* name) {
   else {
     curr = thread_current()->pcb->cwd;
   }
+  bool is_root = inode_get_inumber(curr->inode) == ROOT_DIR_SECTOR;
   int len = strlen(name);
   char* curr_path[len + 1];
   strlcpy(*curr_path, name, len + 1);
+  prev = curr;
   // char* p = &a[0] 
   // const char** srcp
+  // update parent as we go
   
   while (strchr(*curr_path, '/') != NULL) {
     // if (get_next_part(filename, &curr_path[0]) == -1) {
@@ -129,6 +135,7 @@ struct dir_entry* lookup_from_path(char* name) {
       return NULL; // indicates that input directory doesnt exist
     }
     if (strcmp(filename, "..") == 0) {
+      if (is_root) return NULL; // invalid path, root has no parent
       curr = curr->parent;
     }
     else if (strcmp(filename, ".") == 0) {
@@ -138,7 +145,9 @@ struct dir_entry* lookup_from_path(char* name) {
       if (!lookup(curr, filename, ret, NULL)) {
         return NULL; 
       }
+      // dir_close(curr);
       curr = get_dir_from_entry(ret);
+      curr->parent = prev;
     }
   }
 
