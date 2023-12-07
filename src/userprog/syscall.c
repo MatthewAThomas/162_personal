@@ -695,6 +695,7 @@ bool sys_readdir(int fd, char* name) {
 //     }
 //   return e;
 // }
+  return false;
 }
 
 /* Returns true if fd represents a directory, false if it represents an ordinary file. */
