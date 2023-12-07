@@ -12,6 +12,18 @@
    retained, but much longer full path names must be allowed. */
 #define NAME_MAX 14
 
+/* A directory. */
+struct dir {
+  struct inode* inode; /* Backing store. */
+  off_t pos;           /* Current position. */
+
+  struct dir* parent; /* Parent directory. */
+  // struct list children; /* Refers to directory children (not directory entries). */
+  // struct list_elem elem; /* Used to add to list of parent directory's children. */
+  // TODO: init children in directory creation, add children to parent's list in making dir
+  // resolve lookup with lookup() and check if the file is a directory or file
+};
+
 /* A single directory entry. Refers to a file that can be either a directory or a normal file. */
 struct dir_entry {
   block_sector_t inode_sector; /* Sector number of header. */

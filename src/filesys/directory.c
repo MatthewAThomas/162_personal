@@ -8,17 +8,6 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 
-/* A directory. */
-struct dir {
-  struct inode* inode; /* Backing store. */
-  off_t pos;           /* Current position. */
-
-  struct dir* parent; /* Parent directory. */
-  // struct list children; /* Refers to directory children (not directory entries). */
-  // struct list_elem elem; /* Used to add to list of parent directory's children. */
-  // TODO: init children in directory creation, add children to parent's list in making dir
-  // resolve lookup with lookup() and check if the file is a directory or file
-};
 
 // /* A single directory entry. Refers to a file that can be either a directory or a normal file. */
 // struct dir_entry {
@@ -50,10 +39,12 @@ struct dir* get_dir_from_path(char* path) {
 }
 
 bool is_path(char* path) {
-  if (strchr(path, '/') != NULL && path[0] != '\0') {
-    return true;
+  if (path == NULL || path[0] != '\0') {
+    return false;
   }
-  return false;
+  if (strchr(path, '/') != NULL)
+  
+  return true;
 }
 
 /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the

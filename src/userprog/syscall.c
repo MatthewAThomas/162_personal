@@ -628,21 +628,36 @@ bool sys_mkdir(char* dir) {
   // make dir in given path
 
   // // get dir but remove the last / with the find occurrence thing
-  struct dir_entry* curr = lookup_only_parent(dir);
-  if (curr == NULL) return false; // indicates that a directory in the path DNE
+  // char* file = get_filename_from_path(dir); // finds the last entry (the new directory name);
+  block_sector_t block = 0;
+  if (is_path(dir)) {
+    struct dir_entry* curr_entry;
+    curr_entry = lookup_only_parent(dir);
+    if (curr_entry == NULL) return false; // indicates that a directory in the path DNE
+    free_map_allocate(1, &block);
+    // struct dir* parent = get_dir_from_entry(curr);
+    bool success = dir_create(block, 16);
+    return success && dir_add(get_dir_from_entry(curr_entry), dir, block);
+  }
+  else {
+    struct dir* curr = thread_current()->pcb->cwd;
+    if (curr == NULL) {
+      curr = dir_open_root();
+      dir_close(curr);
+    }
+    free_map_allocate(1, &block);
+    bool success = dir_create(block, 16);
+    return success && dir_add(curr, dir, block);
+  }
   // check if dir exists in CWD
   // sector number can be gotten from dir_entry
 
   
-  char* file = get_filename_from_path(dir); // finds the last entry (the new directory name);
   
-  free_map_allocate(1, &(curr->inode_sector));
-  struct dir* parent = get_dir_from_entry(curr);
   // add to parent directory
   // todo, check that given dir_entry is a dir
   // set created directory to have a parent
   // filesys_create?
-  return dir_create(curr->inode_sector, 16);
 
   //return dir_add(get_dir_from_entry(curr), file, curr->inode_sector); // returns false if already exists in CWD; assuming adding to given directory
   // todo: move everything from this func into a different one in directory.c to avoid compile errors + uncomment above line
