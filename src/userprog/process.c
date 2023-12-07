@@ -85,6 +85,8 @@ pid_t process_execute(const char* file_name) {
   // char *token, *save_ptr;
   // token = strtok_r(file_name, " ", &save_ptr);
   // Find the position of the first space in the sentence
+
+  // todo: update for directories
   size_t i = 0;
   while (file_name[i] != ' ' && file_name[i] != '\0') {
     i++;
@@ -92,6 +94,8 @@ pid_t process_execute(const char* file_name) {
   char* prog_name = malloc(sizeof(char)*(i+1));
   strlcpy(prog_name, file_name, i+1);
   //prog_name[i+2] = '\0'; // change
+  
+  // 
 
 
   // use load sema to signal it is complete
@@ -892,6 +896,9 @@ int remove(struct fd_table* fd_table, int fd) {
     }
     struct list_elem* e = &(file_desc->list_fd);
     list_remove(e);
+    // if (file_desc->is_dir) {
+    //   dir_close((struct dir*)file_desc->file);
+    // }
     free(file_desc);
     return 0;
 }
@@ -899,13 +906,13 @@ int remove(struct fd_table* fd_table, int fd) {
 /*
     Adds the given FD to the FD table. Returns the FD.
 */
-struct fd* add(struct fd_table* fd_table, struct file* file, char* file_name) {
+struct fd* add(struct fd_table* fd_table, struct file* file, char* file_name, bool is_dir) {
   if (file == NULL || fd_table == NULL) return NULL;
   struct fd* file_descriptor = calloc(sizeof(struct fd), 1); 
   struct list_elem* e = &(file_descriptor->list_fd);
   file_descriptor->val = fd_table->next_unused_fd;
   file_descriptor->file = file;
-  file_descriptor->is_dir = is_directory_file(file); // TODO: figure out how best to add is_dir
+  file_descriptor->is_dir = is_dir; // TODO: figure out how best to add is_dir
   file_descriptor->file_name = file_name;
   fd_table->next_unused_fd += 1;
   list_push_back(&(fd_table->fds), e);

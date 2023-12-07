@@ -95,14 +95,16 @@ struct fd_table {
 struct fd {
   struct list_elem list_fd;
   int val; 
-  struct file* file; 
+  //void* file; // struct file* file or struct dir* dir depending on is_dir
+  struct file* file;
+  struct dir* dir;
   bool is_dir;
   char* file_name;
 };
 
 struct fd* find(struct fd_table *table, int fd);
 int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
-struct fd* add(struct fd_table *table, struct file* file, char* file_name);
+struct fd* add(struct fd_table *table, struct file* file, char* file_name, bool is_dir);
 void init_table(struct fd_table* table);
 struct file* get_file_pointer(struct fd_table* fd_table, int fd);
 

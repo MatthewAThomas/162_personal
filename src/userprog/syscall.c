@@ -215,6 +215,7 @@ A file may be removed regardless of whether it is open or closed,
 */
 bool sys_remove(char* file) {
   check_valid_ptr((void *) file);  
+  // cannot remove ., .., or root (i.e. empty string)
   return filesys_remove(file);
 }
 
@@ -242,17 +243,23 @@ int sys_open(char* name) { // const
   check_valid_ptr((void *)name);
   struct fd_table* fd_table = thread_current()->pcb->fd_table;
   //struct dir* prev_cwd = thread_current()->cwd;
-  char* file_name = name;
-  // if (is_path(name)) {
-  //   struct dir_entry* entry = get_dir_entry_from_path(char* path);
-  //   // need to change filesys_open to check given directory 
-  //   // name = (get file name, use the separate_parent_and_child thing)
-  // }
-  struct file* file = filesys_open(file_name);
+  // does this open directories or just files?
+  
+  // check if is_dir
+  struct fd* fd;
+  struct file* file = filesys_open(name);
   if (file == NULL) {
     return -1;
   }
-  struct fd* fd = add(fd_table, file, file_name);
+  if (is_file_name(name)) {
+    fd = add(fd_table, file, name, false);
+  }
+  else {
+    // dir_entry* lookup_only_parent(char* name)
+    fd = add(fd_table, file, get_filename_from_path(name), true);
+    //dir_close(dir);
+  }
+  if (fd == NULL) return -1;
   // // change behavior based on dir or file?
   return fd->val;
 }
@@ -444,6 +451,12 @@ void sys_close(int fd) {
   }
   // close file
   file_close(file_desc->file);
+  // if (file_desc->is_dir) {
+  //   dir_close(file_desc->file);
+  // }
+  // else {
+  //   file_close(file_desc->file);
+  // }
   int removal_status = remove(fd_table, fd);
   if (removal_status != 0) {
     // return -1;
@@ -613,6 +626,7 @@ bool sys_chdir(char* dir) {
   struct dir* curr = get_dir_from_path(dir);
   if (curr == NULL) return false;
   thread_current()->pcb->cwd = curr; // does it change the CWD of the given thread too?
+  dir_close(curr);
   return true;
 }
 
@@ -637,17 +651,24 @@ bool sys_mkdir(char* dir) {
     free_map_allocate(1, &block);
     // struct dir* parent = get_dir_from_entry(curr);
     bool success = dir_create(block, 16);
-    return success && dir_add(get_dir_from_entry(curr_entry), dir, block);
+    struct dir* curr = get_dir_from_entry(curr_entry);
+    success = success && dir_add(get_dir_from_entry(curr_entry), dir, block);
+    dir_close(curr);
+    return curr;
   }
   else {
-    struct dir* curr = thread_current()->pcb->cwd;
+    struct dir* curr;
     if (curr == NULL) {
       curr = dir_open_root();
-      dir_close(curr);
+    }
+    else {
+      curr = dir_reopen(thread_current()->pcb->cwd);
     }
     free_map_allocate(1, &block);
     bool success = dir_create(block, 16);
-    return success && dir_add(curr, dir, block);
+    success = success && dir_add(curr, dir, block);
+    dir_close(curr);
+    return success;
   }
   // check if dir exists in CWD
   // sector number can be gotten from dir_entry

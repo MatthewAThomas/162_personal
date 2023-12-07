@@ -75,21 +75,24 @@ bool filesys_create(const char* name, off_t initial_size) {
 struct file* filesys_open(const char* name) {
   struct dir* dir;
   char* filename;
+  
   if (name == NULL || name[0] == '\0') return NULL;
   if (is_path(name)) {
-    dir = get_dir_from_path(name);
+    dir = get_dir_from_path(name); // todo: update how the "parent" cwd is defined
     filename = get_filename_from_path(name);
+    // cannot open from closed directories but can if they are open
   }
   else {
     dir = dir_open_root();
     filename = name;
   }
   struct inode* inode = NULL;
+  // check if the dir is open or closed
   if (dir != NULL) {
     if (!dir_lookup(dir, filename, &inode)) return NULL;
   }
 
-  dir_close(dir);
+  dir_close(dir); // todo: check if it was already closed
 
   return file_open(inode);
 }
@@ -101,6 +104,9 @@ struct file* filesys_open(const char* name) {
 bool filesys_remove(const char* name) {
   struct dir* dir;
   char* filename;
+  if (name == NULL || name[0] == '\0' || strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    return false;
+  }
   if (is_path(name)) {
     dir = get_dir_from_path(name);
     filename = get_filename_from_path(name);

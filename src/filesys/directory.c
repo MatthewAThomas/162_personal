@@ -35,6 +35,12 @@ struct dir* get_dir_from_entry(struct dir_entry* entry) {
 /* Returns NULL if something fails.*/
 struct dir* get_dir_from_path(char* path) {
   if (path == NULL || path[0] == '\0') return NULL;
+  if (strcmp(path, ".") == 0) {
+    return thread_current()->pcb->cwd;
+  }
+  else if (strcmp(path, "..") == 0) {
+    return thread_current()->pcb->cwd->parent;
+  }
   return get_dir_from_entry(lookup_from_path(path));
 }
 
@@ -91,6 +97,17 @@ struct dir_entry* lookup_only_parent(char* name) {
   }
 }
 
+bool is_file_name(char* path) {
+  if (path == NULL || path[0] == '\0') return false;
+  char* last = strrchr(path, '/');
+  if (last == NULL) {
+    if (strrchr(path, ".") != NULL) return true;
+    return false;
+  }
+  if (strrchr(last, ".") != NULL) return true;
+  return false;
+}
+
 char* get_filename_from_path(char* name) {
   if (name == NULL || name[0] == '\0') return NULL;
   char* filename = strrchr(name, '/');
@@ -106,8 +123,8 @@ char* get_filename_from_path(char* name) {
 struct dir_entry* lookup_from_path(char* name) {
   if (name[0] == '\0' || name == NULL) return NULL;
   char filename[NAME_MAX + 1];
-  struct dir* curr;
-  struct dir* prev;
+  struct dir* curr = NULL;
+  //struct dir* prev;
   struct dir_entry* ret = NULL;
 
   if (name[0] == '/') {
@@ -121,13 +138,14 @@ struct dir_entry* lookup_from_path(char* name) {
   int len = strlen(name);
   char* curr_path[len + 1];
   strlcpy(*curr_path, name, len + 1);
-  prev = curr;
+  //prev = curr;
   // char* p = &a[0] 
   // const char** srcp
   // update parent as we go
   
   while (strchr(*curr_path, '/') != NULL) {
     // if (get_next_part(filename, &curr_path[0]) == -1) {
+    if (curr != NULL) dir_close(curr);
     if (get_next_part(filename, curr_path) == -1) {
       return NULL; // indicates that input directory doesnt exist
     }
@@ -144,7 +162,8 @@ struct dir_entry* lookup_from_path(char* name) {
       }
       // dir_close(curr);
       curr = get_dir_from_entry(ret);
-      curr->parent = prev;
+
+      //curr->parent = prev;
     }
   }
 
@@ -161,9 +180,13 @@ bool dir_create(block_sector_t sector, size_t entry_cnt) {
   // add flag here to inode
   if (status) {
     inode = inode_open(sector);
+    struct dir* curr = dir_open(inode);
     set_dir_status(inode, true);
     inode_close(inode);
+    curr->parent = thread_current()->pcb->cwd;
+    dir_close(curr);
     return status;
+    // update both dir status and parent
   }
   return status;
 }

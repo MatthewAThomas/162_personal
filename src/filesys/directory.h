@@ -58,5 +58,6 @@ struct dir* get_dir_from_entry(struct dir_entry* entry);
 struct dir_entry* lookup_from_path(char* name);
 struct dir_entry* lookup_only_parent(char* name);
 char* get_filename_from_path(char* name);
+bool is_file_name(char* path);
 //static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep, off_t* ofsp);
 #endif /* filesys/directory.h */
