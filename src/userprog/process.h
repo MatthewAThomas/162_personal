@@ -97,11 +97,12 @@ struct fd {
   int val; 
   struct file* file; 
   bool is_dir;
+  char* file_name;
 };
 
 struct fd* find(struct fd_table *table, int fd);
 int remove(struct fd_table *table, int fd); // -1 on failure, 0 on success
-struct fd* add(struct fd_table *table, struct file* file);
+struct fd* add(struct fd_table *table, struct file* file, char* file_name);
 void init_table(struct fd_table* table);
 struct file* get_file_pointer(struct fd_table* fd_table, int fd);
 

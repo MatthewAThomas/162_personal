@@ -252,7 +252,7 @@ int sys_open(char* name) { // const
   if (file == NULL) {
     return -1;
   }
-  struct fd* fd = add(fd_table, file);
+  struct fd* fd = add(fd_table, file, file_name);
   // // change behavior based on dir or file?
   return fd->val;
 }
@@ -679,38 +679,11 @@ bool sys_readdir(int fd, char* name) {
   if (file_desc == NULL || !file_desc->is_dir) {
     return false;
   }
-  struct file* file = file_desc->file; 
+  strlcpy(name, file_desc->file_name, strlen(file_desc->file_name) + 1);
   // check if FD corresponds to a directory
   // check if NAME has enough size to store the name
   // reads through ALL the names
-
-  
-
-// struct file {
-//   struct inode* inode; /* File's inode. */
-//   off_t pos;           /* Current position. */
-//   bool deny_write;     /* Has file_deny_write() been called? */
-// };
-
-
-//   struct dir_entry* entry = get_dir_entry_from_path(name);
-//   return false;
-// }
-
-// struct dir_entry* get_entry_from_file(struct file* file) {
-//   struct dir_entry e = NULL;
-//   size_t ofs;
-//   for (ofs = 0; inode_read_at(file->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
-//     if (e.in_use && !strcmp(name, e.name)) { //
-//       if (ep != NULL)
-//         *ep = e;
-//       if (ofsp != NULL)
-//         *ofsp = ofs;
-//       return e;
-//     }
-//   return e;
-// }
-  return false;
+  return true;
 }
 
 /* Returns true if fd represents a directory, false if it represents an ordinary file. */

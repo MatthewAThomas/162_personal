@@ -899,12 +899,14 @@ int remove(struct fd_table* fd_table, int fd) {
 /*
     Adds the given FD to the FD table. Returns the FD.
 */
-struct fd* add(struct fd_table* fd_table, struct file* file) {
+struct fd* add(struct fd_table* fd_table, struct file* file, char* file_name) {
+  if (file == NULL || fd_table == NULL) return NULL;
   struct fd* file_descriptor = calloc(sizeof(struct fd), 1); 
   struct list_elem* e = &(file_descriptor->list_fd);
   file_descriptor->val = fd_table->next_unused_fd;
   file_descriptor->file = file;
   file_descriptor->is_dir = is_directory_file(file); // TODO: figure out how best to add is_dir
+  file_descriptor->file_name = file_name;
   fd_table->next_unused_fd += 1;
   list_push_back(&(fd_table->fds), e);
   file_descriptor->list_fd = *e;
