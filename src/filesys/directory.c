@@ -31,6 +31,7 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
 
 /* Need to call dir_close on directory after returning. */
 struct dir* get_dir_from_entry(struct dir_entry* entry) {
+  if (entry == NULL) return NULL;
   // assumes in_use
   // should find a more efficient way to do this
   struct inode* inode = inode_open(entry->inode_sector);
@@ -44,11 +45,14 @@ struct dir* get_dir_from_entry(struct dir_entry* entry) {
 
 /* Returns NULL if something fails.*/
 struct dir* get_dir_from_path(char* path) {
+  if (path == NULL || path[0] == '\0') return NULL;
   return get_dir_from_entry(lookup_from_path(path));
 }
 
 bool is_path(char* path) {
-  if (strchr(path, '/') != NULL) return true;
+  if (strchr(path, '/') != NULL && path[0] != '\0') {
+    return true;
+  }
   return false;
 }
 
@@ -83,6 +87,7 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
 // Avoid checking if the filename at the end is valid.
 
 struct dir_entry* lookup_only_parent(char* name) {
+  if (name == NULL || name[0] == '\0') return NULL;
   char* filename = strrchr(name, '/');
   if (filename != NULL) {
     char parent_path[strlen(name) - strlen(filename) + 1];
@@ -96,6 +101,7 @@ struct dir_entry* lookup_only_parent(char* name) {
 }
 
 char* get_filename_from_path(char* name) {
+  if (name == NULL || name[0] == '\0') return NULL;
   char* filename = strrchr(name, '/');
   if (filename != NULL) {
     return filename + sizeof(char);
@@ -107,7 +113,7 @@ char* get_filename_from_path(char* name) {
 
 // Close dir as necessary to avoid leakage
 struct dir_entry* lookup_from_path(char* name) {
-  ASSERT(name != NULL);
+  if (name[0] == '\0' || name == NULL) return NULL;
   char filename[NAME_MAX + 1];
   struct dir* curr;
   struct dir* prev;

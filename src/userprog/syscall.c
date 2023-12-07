@@ -249,11 +249,11 @@ int sys_open(char* name) { // const
   //   // name = (get file name, use the separate_parent_and_child thing)
   // }
   struct file* file = filesys_open(file_name);
-  struct fd* fd = add(fd_table, file);
-  // // change behavior based on dir or file?
   if (file == NULL) {
     return -1;
   }
+  struct fd* fd = add(fd_table, file);
+  // // change behavior based on dir or file?
   return fd->val;
 }
 

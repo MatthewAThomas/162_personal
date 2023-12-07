@@ -75,6 +75,7 @@ bool filesys_create(const char* name, off_t initial_size) {
 struct file* filesys_open(const char* name) {
   struct dir* dir;
   char* filename;
+  if (name == NULL || name[0] == '\0') return NULL;
   if (is_path(name)) {
     dir = get_dir_from_path(name);
     filename = get_filename_from_path(name);
@@ -84,8 +85,10 @@ struct file* filesys_open(const char* name) {
     filename = name;
   }
   struct inode* inode = NULL;
-  if (dir != NULL)
-    dir_lookup(dir, filename, &inode);
+  if (dir != NULL) {
+    if (!dir_lookup(dir, filename, &inode)) return NULL;
+  }
+
   dir_close(dir);
 
   return file_open(inode);
